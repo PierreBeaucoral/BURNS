@@ -1,0 +1,29 @@
+# --- R / RStudio ---
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# --- OS ---
+.DS_Store
+
+# --- Data: raw snapshots are large & re-fetchable; keep manifests only ---
+DATA/snapshots/*/
+!DATA/snapshots/*/MANIFEST.md
+DATA/cache/
+DATA/effis_layer/
+
+# --- Quarto / render artifacts ---
+/.quarto/
+_site/
+*_files/
+*.html
+!assets/**/*.html
+
+# --- Heavy generated media (re-renderable) ---
+*.gif
+
+# --- LaTeX side products (if any) ---
+*.aux
+*.log
+*.toc
