@@ -64,6 +64,23 @@ read_effis <- function(shp_path) {
   ba_all
 }
 
+#' Filter perimeters to an explicit [start_date, end_date] window and project
+#' to the equal-area CRS (3035). Lower-level building block behind
+#' filter_summer(); used directly where day-level (not month-level) windows
+#' are needed, e.g. "as of 3 July" cutoffs for a season-to-date comparison.
+#' @param ba_all sf object with a ba_date (Date) column, as returned by read_effis()
+#' @param start_date Date, inclusive lower bound
+#' @param end_date Date, inclusive upper bound
+#' @return sf object, valid geometries, CRS 3035
+filter_window <- function(ba_all, start_date, end_date) {
+  stopifnot(inherits(start_date, "Date"), inherits(end_date, "Date"), start_date <= end_date)
+
+  ba_all |>
+    dplyr::filter(ba_date >= start_date, ba_date <= end_date) |>
+    sf::st_make_valid() |>
+    sf::st_transform(3035)
+}
+
 #' Filter perimeters to a given year's summer window (default Jun-Aug) and
 #' project to the equal-area CRS (3035). Generalizes the hardcoded 2025 filter.
 #' @param ba_all sf object with a ba_date (Date) column, as returned by read_effis()
@@ -77,10 +94,7 @@ filter_summer <- function(ba_all, year, start_month = 6L, end_month = 8L) {
   summer_start <- as.Date(sprintf("%d-%02d-01", year, start_month))
   summer_end   <- as.Date(sprintf("%d-%02d-%02d", year, end_month, last_day))
 
-  ba_all |>
-    dplyr::filter(ba_date >= summer_start, ba_date <= summer_end) |>
-    sf::st_make_valid() |>
-    sf::st_transform(3035)
+  filter_window(ba_all, summer_start, summer_end)
 }
 
 #' Clip perimeters to the Europe union and tag each with the country of

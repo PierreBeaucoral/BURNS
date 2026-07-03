@@ -1,0 +1,1022 @@
+# wildfires_2025_pretty_plus_composition.R
+# Local-only workflow with land-cover composition
+# Data layout expected:
+#   data/effis_layer/modis.ba.poly.shp  (+ .dbf/.shx/…)
+#   data/severity/severity_YYYY.tiff    (optional, 2018..)
+#   data/report_2023.xlsx               (optional, country totals)
+
+# -------------------- Packages --------------------
+pkgs <- c("sf","dplyr","stringr","lubridate","ggplot2","readxl","forcats",
+          "rnaturalearth","rnaturalearthdata","janitor","scales","patchwork","tidyr")
+to_i <- pkgs[!(pkgs %in% rownames(installed.packages()))]
+if(length(to_i)) install.packages(to_i, Ncpus = max(1, parallel::detectCores()-1))
+suppressPackageStartupMessages({
+  library(sf); library(dplyr); library(stringr); library(lubridate); library(ggplot2)
+  library(readxl); library(forcats); library(rnaturalearth); library(janitor)
+  library(scales); library(patchwork); library(tidyr)
+})
+
+lab_si_ha <- scales::label_number(scale_cut = scales::cut_si("ha"))
+
+# -------------------- Paths --------------------
+shp_path <- "DATA/effis_layer/modis.ba.poly.shp"
+sev_dir  <- "DATA/severity"
+ctry_tot_2023 <- "DATA/report_2023.xlsx"
+stopifnot(file.exists(shp_path))
+
+# -------------------- Helpers --------------------
+to_num <- function(x){
+  if (is.numeric(x)) return(x)
+  x <- trimws(as.character(x))
+  x <- gsub("\u00A0|\\s", "", x)   # remove spaces / NBSP
+  x <- gsub(",", ".", x)           # EU decimal comma -> dot
+  readr::parse_number(x, locale = readr::locale(decimal_mark = "."))
+}
+parse_date_any <- function(x){
+  if (inherits(x,"Date")) return(x)
+  if (inherits(x,"POSIXt")) return(as.Date(x))
+  s <- as.character(x); s <- substr(s, 1, 19)
+  y <- suppressWarnings(lubridate::parse_date_time(
+    s, orders = c("Ymd","Y-m-d","dmy","d-m-Y","m/d/Y","d/m/Y","Ymd HMS","Y-m-d H:M:S")
+  ))
+  as.Date(y)
+}
+
+# -------------------- Europe polygons (EU27 + EFTA + UK) via iso_a2_eh --------------------
+eu_keep <- c(
+  "AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR","HU","IE","IT","LV","LT","LU","MT","NL",
+  "PL","PT","RO","SK","SI","ES","SE",    # EU27
+  "NO","IS","CH","LI",                   # EFTA
+  "GB", # UK
+  "BA","RS","MK","ME","XK"
+)
+
+europe_bbox <- st_as_sfc(st_bbox(c( xmin = -15, xmax = 40, # longitudes 
+                                    ymin = 34, ymax = 72 # latitudes
+                                    ), crs = 4326))
+eu_poly <- rnaturalearth::ne_countries(scale = "large", returnclass = "sf") |>
+  filter(iso_a2_eh %in% eu_keep) |>
+  st_intersection(europe_bbox) |> # keep only mainland Europe
+  st_transform(3035)
+
+eu_u <- st_union(eu_poly)   # union for stable clipping
+
+# -------------------- Read burnt-area perimeters --------------------
+ba_all <- suppressWarnings(st_read(shp_path, quiet = TRUE)) |> janitor::clean_names()
+
+# Detect & parse date
+cand_names <- tolower(names(ba_all))
+wanted <- c("firedate","lastupdate","acq_date","acqdate","date","startdate","start_date")
+hit <- intersect(wanted, cand_names)
+if (!length(hit)) stop("No date-like column found in shapefile; available: ", paste(names(ba_all), collapse=", "))
+date_col <- hit[1]
+ba_all <- ba_all |>
+  mutate(ba_date = parse_date_any(.data[[date_col]])) |>
+  filter(!is.na(ba_date))
+
+# Ensure an ID
+if (!"id" %in% names(ba_all)) ba_all <- ba_all |> mutate(id = row_number())
+
+# -------------------- Filter Summer 2025 and project --------------------
+summer_start <- as.Date("2025-06-01"); summer_end <- as.Date("2025-08-31")
+ba_2025 <- ba_all |> filter(ba_date >= summer_start, ba_date <= summer_end)
+ba_2025_3035 <- ba_2025 |> st_make_valid() |> st_transform(3035)
+
+# Clip to EU union (not bbox, so France/corsica etc. stay)
+ba_2025_eu <- st_intersection(ba_2025_3035, eu_u)
+
+# Compute area from geometry (ha)
+ba_2025_eu <- ba_2025_eu |> mutate(area_ha = as.numeric(st_area(geometry)) / 10000)
+
+# -------------------- Robust country tagging: max overlap --------------------
+inter <- st_intersection(
+  ba_2025_eu |> dplyr::select(id, area_ha),
+  eu_poly     |> dplyr::select(name_long, iso_a2)
+) |>
+  dplyr::mutate(overlap_ha = as.numeric(st_area(geometry))/10000)
+
+winner <- inter |>
+  st_drop_geometry() |>
+  group_by(id) |>
+  slice_max(overlap_ha, n = 1, with_ties = FALSE) |>
+  ungroup() |>
+  select(id, name_long, iso_a2)
+
+ba_2025_tagged <- ba_2025_eu |>
+  left_join(winner, by = "id") |>
+  filter(!is.na(name_long))
+
+# -------------------- Land-cover composition --------------------
+lc_cols <- c("broadlea","conifer","mixed","scleroph","transit","agriareas","artifsurf","othernatlc","otherlc")
+present_lc <- intersect(lc_cols, names(ba_2025_tagged))
+
+if (length(present_lc)) {
+  ba_2025_tagged <- ba_2025_tagged |>
+    mutate(across(all_of(present_lc), to_num),
+           across(all_of(present_lc), ~ .x/100)) # perc -> proportion
+  
+  for (v in present_lc) {
+    ba_2025_tagged[[paste0(v, "_ha")]] <- ba_2025_tagged[[v]] * ba_2025_tagged$area_ha
+  }
+  
+  agg_cols <- c("area_ha", paste0(present_lc, "_ha"))
+  ctry_comp_2025 <- ba_2025_tagged |>
+    st_drop_geometry() |>
+    group_by(name_long) |>
+    summarise(across(all_of(agg_cols), ~ sum(.x, na.rm = TRUE)), .groups = "drop") |>
+    mutate(across(ends_with("_ha") & !matches("^area_ha$"), ~ .x / area_ha, .names = "{.col}_share"))
+  
+  topN_comp <- ctry_comp_2025 |>
+    arrange(desc(area_ha)) |>
+    slice_head(n = 10) |>
+    pull(name_long)
+  
+  # Color-blind-safe, semantically meaningful palette
+  pal_lc <- c(
+    "Broad-leaved forest"            = "#2E7D32",  # deep leaf green
+    "Coniferous forest"              = "#00512D",  # dark pine
+    "Mixed forest"                   = "#4CAF50",  # mid forest green
+    "Sclerophyllous veg."            = "#E64A19",  # hot Mediterranean orange
+    "Transitional woodland-shrub"    = "#8C6D31",  # olive/brown scrub
+    "Agricultural areas"             = "#DDAA33",  # golden fields
+    "Artificial surfaces"            = "#6E6E6E",  # urban grey
+    "Other natural LC"               = "#3E8EC4",  # light blue (natural/open)
+    "Other LC"                       = "#9B59B6"   # lavender (misc/unknown)
+  )
+  
+  p_comp_stacked <- ggplot(comp_long, aes(x = share, y = name_long, fill = class)) +
+    geom_col(width = 0.72, color = NA) +
+    scale_fill_manual(values = pal_lc, breaks = names(pal_lc), name = "Land cover") +
+    scale_x_continuous(labels = scales::label_percent()) +
+    labs(
+      title    = "What burned? Land-cover composition of 2025 summer burn scars (Top-10 countries)",
+      subtitle = "Share of each burned polygon’s area by land-cover type, aggregated per country (Jun–Aug).",
+      x = "Share of burned area", y = NULL
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      legend.position = "right",
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+}
+
+p_comp_stacked
+
+# -------------------- Core maps and bars --------------------
+p_base <- ggplot() +
+  geom_sf(data = eu_poly, fill = "grey95", color = "grey70", linewidth = 0.15) +
+  coord_sf()   # no xlim/ylim cropping
+p_base
+# 1) Hero: fill polygons so burned areas pop
+hero <- p_base +
+  geom_sf(data = ba_2025_tagged,
+          fill = "red", alpha = 0.35, color = "red", linewidth = 0.1) +
+  labs(
+    title = "Europe — Burn-scar perimeters (Jun–Aug 2025)",
+    subtitle = "EFFIS rapid perimeters (≥ ~30–50 ha), country tagged by max overlap",
+    caption = "Perimeters: EFFIS (local shapefile)."
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(panel.grid = element_blank(), axis.text = element_blank(), axis.title = element_blank())
+
+
+# 2) Optional: outline version (useful when fills are very light)
+hero_outline <- p_base +
+  geom_sf(data = ba_2025_tagged,
+          aes(geometry = geometry),
+          fill = NA, color = "red", linewidth = 0.2, alpha = 0.7) +
+  labs(title = "Burn-scar perimeters (outlines) — Summer 2025",
+       subtitle = "EFFIS rapid perimeters (≥ ~30–50 ha), country tagged by max overlap",
+       caption = "EFFIS perimeters (local).") +
+  theme_minimal(base_size = 11) +
+  theme(panel.grid = element_blank(), axis.text = element_blank(), axis.title = element_blank())
+
+hero_outline
+
+ba_2025_tagged <- ba_2025_tagged |>
+  mutate(month = factor(lubridate::month(ba_date, label = TRUE, abbr = TRUE),
+                        levels = c("Jun","Jul","Aug")))
+
+# ensure month exists & ordered
+ba_2025_tagged <- ba_2025_tagged |>
+  dplyr::mutate(month = factor(lubridate::month(ba_date, label = TRUE, abbr = TRUE),
+                               levels = c("Jun","Jul","Aug")))
+
+table(ba_2025_tagged$month, useNA = "ifany")
+
+
+# --- deps (once) ---
+if (!requireNamespace("maptiles", quietly = TRUE)) install.packages("maptiles")
+if (!requireNamespace("terra", quietly = TRUE))    install.packages("terra")
+if (!requireNamespace("tidyterra", quietly = TRUE)) install.packages("tidyterra")
+if (!requireNamespace("ggspatial", quietly = TRUE)) install.packages("ggspatial")
+library(maptiles)
+library(terra)
+library(tidyterra)
+library(ggspatial)
+
+# 1) Monthly stats for in-panel labels
+monthly_stats <- ba_2025_tagged |>
+  sf::st_drop_geometry() |>
+  dplyr::count(month, name = "n_fires") |>
+  dplyr::left_join(
+    ba_2025_tagged |>
+      dplyr::group_by(month) |>
+      dplyr::summarise(burned_ha = sum(area_ha, na.rm = TRUE), .groups = "drop"),
+    by = "month"
+  ) |>
+  dplyr::mutate(
+    lab = paste0(
+      "Fires: ", scales::comma(n_fires),
+      "\nArea: ", scales::label_number(scale_cut = scales::cut_si("ha"))(burned_ha)
+    )
+  )
+
+# 2) Fetch a satellite basemap (Esri World Imagery), cache locally
+#    NOTE: needs internet the first time; then uses the cache.
+bb_ll <- sf::st_bbox(sf::st_transform(eu_poly, 4326))
+sat   <- maptiles::get_tiles(
+  x = sf::st_as_sfc(bb_ll),
+  provider = "Esri.WorldImagery",
+  zoom = 4,                         # bump to 5 if you want more detail
+  cachedir = "DATA/cache"
+)
+
+# 3) Reproject tiles to your map CRS (EPSG:3035)
+sat_3035 <- terra::project(sat, "EPSG:3035")
+
+# 4) Label anchor positions inside each facet (top-left corner)
+bb <- sf::st_bbox(eu_poly)  # already 3035
+stats_pos <- monthly_stats |>
+  dplyr::mutate(
+    x = bb["xmin"] + 0.03 * (bb["xmax"] - bb["xmin"]),
+    y = bb["ymax"] - 0.03 * (bb["ymax"] - bb["ymin"])
+  )
+
+# 5) Build the fancy monthly facet map
+facet <- ggplot() +
+  # Satellite background (RGB)
+  tidyterra::geom_spatraster_rgb(data = sat_3035, maxcell = 3e6, interpolate = TRUE) +
+  # A faint veil so scars pop on top of imagery
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf,
+           fill = scales::alpha("white", 0.06), colour = NA) +
+  # Country outlines for clarity
+  geom_sf(data = eu_poly, fill = NA, color = "white", linewidth = 0.18, alpha = 0.9) +
+  # Burn scars (fill + hairline outline)
+  geom_sf(
+    data = ba_2025_tagged,
+    fill = "#E31A1C", alpha = 0.35,
+    color = "#E31A1C", linewidth = 0.06,
+    inherit.aes = FALSE
+  ) +
+  facet_wrap(~ month, ncol = 3, drop = FALSE) +
+  coord_sf(expand = FALSE, xlim = c(bb["xmin"], bb["xmax"]), ylim = c(bb["ymin"], bb["ymax"])) +
+  # Monthly labels: counts + area
+  geom_label(
+    data = stats_pos,
+    aes(x = x, y = y, label = lab),
+    inherit.aes = FALSE,
+    size = 3.1, label.size = 0,
+    label.padding = grid::unit(3, "pt"),
+    fill = scales::alpha("white", 0.85), colour = "grey20"
+  ) +
+  # Map furniture
+  ggspatial::annotation_scale(location = "bl", width_hint = 0.25, text_cex = 0.6, line_width = 0.2) +
+  ggspatial::annotation_north_arrow(
+    location = "br", height = grid::unit(0.55, "cm"),
+    style = north_arrow_fancy_orienteering
+  ) +
+  labs(
+    title    = "Monthly burn-scar perimeters — Summer 2025",
+    subtitle = "Background: Esri World Imagery (satellite). Summer = June–August (meteorological).",
+    caption  = "Perimeters: EFFIS rapid mapping (≈ ≥30–50 ha). Areas computed in EPSG:3035. Coverage: EU27 + EFTA + UK."
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid        = element_blank(),
+    axis.text         = element_blank(),
+    axis.title        = element_blank(),
+    panel.spacing     = grid::unit(8, "pt"),
+    strip.text        = element_text(face = "bold"),
+    legend.position   = "none",
+    plot.subtitle     = element_text(colour = "grey25"),
+    plot.caption      = element_text(colour = "grey30")
+  )
+
+facet
+
+
+
+# --- Daily occurrences for Summer 2025 (EU clipped) --------------------------
+library(dplyr); library(tidyr); library(ggplot2)
+
+summer_start <- as.Date("2025-06-01")
+summer_end   <- as.Date("2025-08-31")
+
+# Count perimeters/day (subset to EU without cutting geom → no sf warning)
+daily_2025 <- ba_all %>%
+  filter(ba_date >= summer_start, ba_date <= summer_end) %>%
+  sf::st_transform(3035) %>%
+  sf::st_filter(eu_u) %>%        # subset, no attribute warning
+  sf::st_drop_geometry() %>%
+  count(ba_date, name = "fires") %>%
+  complete(ba_date = seq(summer_start, summer_end, by = "day"),
+           fill = list(fires = 0)) %>%
+  arrange(ba_date)
+
+# 7-day rolling mean
+if (!requireNamespace("slider", quietly = TRUE)) install.packages("slider")
+library(slider)
+daily_2025 <- daily_2025 %>%
+  mutate(roll7 = slide_dbl(fires, mean, .before = 3, .after = 3, .complete = FALSE))
+
+# Cumulative (simple!)
+daily_2025 <- daily_2025 %>%
+  mutate(cum_fires = cumsum(fires))
+
+# Alternating month bands
+month_bands <- daily_2025 %>%
+  mutate(month = lubridate::floor_date(ba_date, "month")) %>%
+  group_by(month) %>%
+  summarise(xmin = min(ba_date), xmax = max(ba_date) + 1, .groups = "drop") %>%
+  mutate(even = row_number() %% 2 == 0)
+
+# Secondary axis scaling for cumulative
+max_daily <- max(daily_2025$fires, na.rm = TRUE)
+sfactor   <- max(daily_2025$cum_fires, na.rm = TRUE) / (max_daily * 1.15)
+daily_2025 <- daily_2025 %>% mutate(cum_scaled = cum_fires / sfactor)
+
+# Top spikes to annotate
+peaks <- daily_2025 %>% slice_max(fires, n = 3, with_ties = FALSE)
+
+col_bar  <- "grey85"
+col_mean <- "#D64A05"
+col_cum  <- "#1F78B4"
+
+p_daily_occurrence <- ggplot(daily_2025, aes(x = ba_date)) +
+  geom_rect(data = month_bands,
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = even),
+            inherit.aes = FALSE, alpha = 0.28, show.legend = FALSE) +
+  scale_fill_manual(values = c("TRUE" = "white", "FALSE" = "grey98")) +
+  geom_col(aes(y = fires), width = 0.9, fill = col_bar, color = "grey80", linewidth = 0.15) +
+  geom_ribbon(aes(ymin = pmax(0, roll7 - 0.5), ymax = roll7 + 0.5),
+              fill = scales::alpha(col_mean, 0.12), color = NA) +
+  geom_line(aes(y = roll7), linewidth = 0.9, color = col_mean) +
+  geom_line(aes(y = cum_scaled), linewidth = 0.8, color = col_cum) +
+  scale_y_continuous(
+    name = "Perimeters per day",
+    sec.axis = sec_axis(~ . * sfactor, name = "Cumulative since 1 Jun (count)")
+  ) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  {
+    if (requireNamespace("ggrepel", quietly = TRUE)) {
+      ggrepel::geom_text_repel(
+        data = peaks,
+        aes(y = fires, label = scales::comma(fires)),
+        nudge_y = 4, size = 3.5, color = "grey20", segment.color = "grey70",
+        seed = 1, box.padding = 0.2, min.segment.length = 0
+      )
+    } else {
+      geom_text(data = peaks, aes(y = fires, label = scales::comma(fires)),
+                nudge_y = 4, size = 3.5, color = "grey20")
+    }
+  } +
+  labs(
+    title = "Daily wildfire perimeters detected — Summer 2025 (EU)",
+    subtitle = "Bars: daily counts; Orange line: 7-day mean; Blue line: cumulative since 1 Jun (right axis). Summer = June–August.",
+    x = NULL, y = NULL,
+    caption = "EFFIS rapid perimeters (≈ ≥30–50 ha), EU27+EFTA+UK subset. Counts reflect detections; areas/geometry not used here."
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.text.x = element_text(margin = margin(t = 4)),
+    plot.caption = element_text(color = "grey30"),
+    plot.subtitle = element_text(color = "grey25")
+  )
+
+p_daily_occurrence
+
+# --- Animated reveal of daily counts -----------------------------------------
+# Optional: install gganimate + gifski
+if (!requireNamespace("gganimate", quietly = TRUE)) install.packages("gganimate")
+if (!requireNamespace("gifski", quietly = TRUE)) install.packages("gifski")
+library(gganimate)
+
+daily_2025 <- daily_2025 |>
+  mutate(cum_fires = cumsum(fires))  # nice to show cumulative, too
+
+p_daily_anim <- ggplot(daily_2025, aes(x = ba_date)) +
+  geom_col(aes(y = fires)) +
+  geom_line(aes(y = roll7), linewidth = 0.7) +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%d %b") +
+  labs(
+    title = "Daily wildfire perimeters — {frame_along}",
+    subtitle = "Bars: daily counts • Line: 7-day mean • Cumulative: {format(cum_fires[frame_along - min(as.integer(ba_date)) + 1], big.mark=',')}",
+    x = NULL, y = "Perimeters per day",
+    caption = "EFFIS rapid perimeters (≥ ~30–50 ha), EU clip"
+  ) +
+  theme_minimal(base_size = 12) +
+  transition_reveal(along = ba_date)
+
+# Render to GIF (adjust width/height/fps as desired)
+anim_save("daily_occurrence_2025.gif", animate(p_daily_anim, width = 900, height = 450, fps = 20))
+
+# Requires: library(gganimate) loaded successfully
+
+
+# 1) stable ID for grouping
+ba_2025_tagged <- ba_2025_tagged |>
+  dplyr::mutate(gid = dplyr::row_number())  # one row = one polygon
+
+# 2) a tight viewport around the scars (optional)
+bb <- sf::st_bbox(ba_2025_tagged)
+
+# 3) build plot: static base, animated layer with group = gid
+p_map_daily <- ggplot() +
+  geom_sf(data = eu_poly, inherit.aes = FALSE,
+          fill = "grey95", color = "grey70", linewidth = 0.2) +
+  geom_sf(data = ba_2025_tagged,
+          aes(group = gid),               # <- important
+          fill = "red", alpha = 0.55,
+          color = "red", linewidth = 0.05,
+          inherit.aes = FALSE) +
+  coord_sf(xlim = c(bb["xmin"], bb["xmax"]),
+           ylim = c(bb["ymin"], bb["ymax"]), expand = FALSE) +
+  labs(
+    title = "Daily wildfire perimeters — {format(as.Date(closest_state), '%d %b %Y')}",
+    subtitle = "New perimeters on this day",
+    caption = "EFFIS rapid perimeters (≥ ~30–50 ha), EU27+EFTA+UK"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(), axis.title = element_blank()) +
+  # 4) animate by discrete dates; no tweening between states
+  gganimate::transition_states(ba_date, transition_length = 0, state_length = 1, wrap = FALSE) +
+  gganimate::enter_fade() + gganimate::exit_fade() +
+  gganimate::ease_aes("linear")
+
+# Render
+animate(p_map_daily, width = 900, height = 650, fps = 15, duration = 12, renderer = gifski_renderer())
+# anim_save("map_daily_new_2025.gif")
+
+
+# stable id for grouping (if not already set)
+if (!"gid" %in% names(ba_2025_tagged)) {
+  ba_2025_tagged <- ba_2025_tagged |> dplyr::mutate(gid = dplyr::row_number())
+}
+
+bb <- sf::st_bbox(ba_2025_tagged)
+
+p_map_cumulative <- ggplot() +
+  geom_sf(data = eu_poly, inherit.aes = FALSE,
+          fill = "grey95", color = "grey70", linewidth = 0.2) +
+  geom_sf(data = ba_2025_tagged,
+          aes(group = gid),
+          fill = "red", alpha = 0.55,
+          color = "red", linewidth = 0.05,
+          inherit.aes = FALSE) +
+  coord_sf(xlim = c(bb["xmin"], bb["xmax"]),
+           ylim = c(bb["ymin"], bb["ymax"]), expand = FALSE) +
+  labs(
+    title = "Cumulative wildfire perimeters — {format(as.Date(closest_state), '%d %b %Y')}",
+    subtitle = "Current day + fading trail of earlier days",
+    caption = "EFFIS rapid perimeters (≥ ~30–50 ha), EU27+EFTA+UK"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(), axis.title = element_blank()) +
+  # KEY: use states (discrete days) + shadow for the trail
+  transition_states(ba_date, transition_length = 0, state_length = 1, wrap = FALSE) +
+  shadow_mark(past = TRUE, future = FALSE, alpha = 0.15, size = 0.02) +
+  enter_fade() + exit_fade() +
+  ease_aes("linear")
+
+animate(p_map_cumulative, width = 900, height = 650, fps = 18, duration = 12, renderer = gifski_renderer())
+anim_save("map_daily_cumulative_2025.gif")
+
+ctry_2025 <- ba_2025_tagged |>
+  st_drop_geometry() |>
+  group_by(name_long) |>
+  summarise(burned_ha = sum(area_ha, na.rm = TRUE), n_fires = n(), .groups="drop") |>
+  arrange(desc(burned_ha)) |>
+  slice_head(n = 10) |>
+  mutate(name_long = forcats::fct_reorder(name_long, burned_ha))
+
+# --- deps for flags & color extraction (once) ---
+if (!requireNamespace("countrycode", quietly = TRUE)) install.packages("countrycode")
+if (!requireNamespace("ggimage", quietly = TRUE)) install.packages("ggimage")
+if (!requireNamespace("curl", quietly = TRUE)) install.packages("curl")
+if (!requireNamespace("fs", quietly = TRUE)) install.packages("fs")
+if (!requireNamespace("png", quietly = TRUE)) install.packages("png")
+library(countrycode); library(ggimage); library(curl); library(fs); library(png)
+
+# --- robust ISO2 for the Top-10 countries (fall back to eu_poly if needed) ---
+name_to_iso2 <- tibble::tibble(name_long = as.character(ctry_2025$name_long)) |>
+  dplyr::distinct() |>
+  dplyr::mutate(
+    iso2 = countrycode(
+      name_long, origin = "country.name", destination = "iso2c",
+      custom_match = c("Czechia"="CZ","United Kingdom"="GB","North Macedonia"="MK","Moldova"="MD","Kosovo"="XK")
+    )
+  )
+
+map_iso_from_poly <- eu_poly |>
+  sf::st_drop_geometry() |>
+  dplyr::distinct(name_long, iso_a2) |>
+  dplyr::rename(iso2_poly = iso_a2)
+
+name_to_iso2 <- name_to_iso2 |>
+  dplyr::left_join(map_iso_from_poly, by = "name_long") |>
+  dplyr::mutate(iso2 = dplyr::coalesce(iso2, iso2_poly),
+                iso2_lower = tolower(iso2)) |>
+  dplyr::select(name_long, iso2_lower)
+
+# --- download small PNG flags locally (once) ---
+flags_dir <- "assets/flags_rect"
+fs::dir_create(flags_dir)
+
+fetch_flags <- function(iso2_vec) {
+  iso2_vec <- unique(na.omit(iso2_vec))
+  tibble::tibble(iso2_lower = iso2_vec) |>
+    dplyr::mutate(flag_path = purrr::map_chr(iso2_lower, function(code){
+      dest <- file.path(flags_dir, sprintf("%s.png", code))
+      if (!file.exists(dest)) {
+        url <- sprintf("https://flagcdn.com/w40/%s.png", code)
+        try(curl::curl_download(url, dest, quiet = TRUE), silent = TRUE)
+      }
+      if (file.exists(dest)) dest else NA_character_
+    }))
+}
+flag_paths <- fetch_flags(name_to_iso2$iso2_lower)
+
+# --- extract a dominant (non-white) color from each flag (for the point) ---
+dominant_flag_color <- function(path) {
+  res <- try({
+    arr <- png::readPNG(path)
+    rgb <- cbind(as.vector(arr[,,1]), as.vector(arr[,,2]), as.vector(arr[,,3]))
+    a   <- if (dim(arr)[3] >= 4) as.vector(arr[,,4]) else rep(1, nrow(rgb))
+    keep <- a > 0.8
+    rgb  <- rgb[keep, , drop = FALSE]
+    # drop near-white pixels
+    keep2 <- rowMeans(rgb) < 0.95
+    rgb <- rgb[keep2, , drop = FALSE]
+    if (nrow(rgb) < 50) rgb <- rgb[keep, , drop = FALSE]
+    set.seed(1)
+    km <- stats::kmeans(rgb, centers = min(3, nrow(rgb)), iter.max = 15)
+    dom <- km$centers[which.max(tabulate(km$cluster)), ]
+    grDevices::rgb(dom[1], dom[2], dom[3])
+  }, silent = TRUE)
+  if (inherits(res, "try-error")) "#444444" else res
+}
+flag_cols <- flag_paths |>
+  dplyr::mutate(col = vapply(flag_path, dominant_flag_color, character(1)))
+
+# --- join ISO, flag paths, and colors to ctry_2025; compute right-side positions ---
+bars_df <- ctry_2025 |>
+  dplyr::mutate(name_long = as.character(name_long)) |>
+  dplyr::left_join(name_to_iso2, by = "name_long") |>
+  dplyr::left_join(flag_paths,   by = "iso2_lower") |>
+  dplyr::left_join(flag_cols,    by = c("iso2_lower","flag_path")) |>
+  dplyr::mutate(col = dplyr::coalesce(col, "#444444"))
+
+max_x   <- max(bars_df$burned_ha, na.rm = TRUE)
+pad_flag <- 0.1 * max_x  # push flags out to the right so they never touch bars
+bars_df <- bars_df |>
+  dplyr::mutate(
+    x_flag = burned_ha + pad_flag,
+    name_long = forcats::fct_reorder(name_long, burned_ha) # keep your Top-10 order
+  )
+
+# --- plot: neutral bars, colored point at the bar end, flag on the right ---
+bars_flagged <- ggplot(bars_df, aes(x = burned_ha, y = name_long)) +
+  geom_col(fill = "grey90") +
+  geom_point(aes(color = col), size = 3) +
+  scale_color_identity() +
+  ggimage::geom_image(
+    data = dplyr::filter(bars_df, !is.na(flag_path)),
+    aes(x = x_flag, y = name_long, image = flag_path),
+    inherit.aes = FALSE, size = 0.065, asp = 2/3
+  ) +
+  scale_x_continuous(labels = lab_si_ha, expand = expansion(mult = c(0, 0.30))) +
+  labs(
+    title = "Top-10 countries — total burned area (Jun–Aug 2025)",
+    subtitle = "Summer is from early June till late August (meteorological). Each line shows the change in polygon-summed burned area between 2017 and 2025.",
+    x = "Burned area (ha)", y = NULL,
+    caption = "Areas computed from polygon geometry (EPSG:3035). Countries assigned by maximum overlap with national borders (EU27 + EFTA + UK)."
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(plot.margin = margin(5.5, 90, 10, 5.5, "pt")) +
+  coord_cartesian(clip = "off")
+
+bars_flagged
+
+
+# -------------------- Multi-year comparison (geometry-first) --------------------
+get_burnt_summer_local_geom <- function(y, eu_poly, ba_all){
+  out <- ba_all |>
+    filter(ba_date >= as.Date(paste0(y,"-06-01")),
+           ba_date <= as.Date(paste0(y,"-08-31"))) |>
+    st_make_valid() |> st_transform(3035)
+  
+  eu_u <- st_union(eu_poly)
+  out <- st_intersection(out, eu_u) |>
+    mutate(area_ha = as.numeric(st_area(geometry))/10000)
+  
+  inter <- st_intersection(out |> select(id, area_ha),
+                           eu_poly |> select(name_long, iso_a2)) |>
+    mutate(overlap_ha = as.numeric(st_area(geometry))/10000)
+  
+  winner <- inter |>
+    st_drop_geometry() |>
+    group_by(id) |>
+    slice_max(overlap_ha, n = 1, with_ties = FALSE) |>
+    ungroup() |>
+    select(id, name_long, iso_a2)
+  
+  out |> left_join(winner, by = "id") |> filter(!is.na(name_long)) |> mutate(year = y)
+}
+
+yrs <- c(2017, 2022, 2023, 2025)
+multi <- bind_rows(lapply(yrs, get_burnt_summer_local_geom, eu_poly = eu_poly, ba_all = ba_all))
+
+ctry_multi <- multi |>
+  st_drop_geometry() |>
+  group_by(name_long, year) |>
+  summarise(burned_ha = sum(area_ha, na.rm = TRUE), .groups = "drop")
+
+dd <- ctry_multi |>
+  filter(year %in% c(2017, 2025)) |>
+  tidyr::pivot_wider(names_from = year, values_from = burned_ha, values_fill = 0) |>
+  mutate(delta = `2025` - `2017`) |>
+  arrange(desc(`2025`)) |>
+  slice_head(n = 20) |>
+  mutate(name_long = forcats::fct_reorder(name_long, `2025`))
+
+# --- deps for flags & color extraction ---
+if (!requireNamespace("ggimage", quietly = TRUE)) install.packages("ggimage")
+if (!requireNamespace("countrycode", quietly = TRUE)) install.packages("countrycode")
+if (!requireNamespace("curl", quietly = TRUE)) install.packages("curl")
+if (!requireNamespace("fs", quietly = TRUE)) install.packages("fs")
+if (!requireNamespace("png", quietly = TRUE)) install.packages("png")
+library(ggimage); library(countrycode); library(curl); library(fs); library(png)
+
+# label formatter if not defined
+if (!exists("lab_si_ha")) lab_si_ha <- scales::label_number(scale_cut = scales::cut_si("ha"))
+
+# --------- ISO2 per country (robust) ----------
+codes <- tibble::tibble(name_long = as.character(dd$name_long)) |>
+  dplyr::distinct() |>
+  dplyr::mutate(
+    iso2 = countrycode(
+      name_long, origin = "country.name", destination = "iso2c",
+      custom_match = c("Czechia" = "CZ", "United Kingdom" = "GB", "North Macedonia" = "MK",
+                       "Moldova" = "MD", "Kosovo" = "XK")
+    )
+  )
+
+# fallback to map names if any missing
+codes_map <- eu_poly |> sf::st_drop_geometry() |>
+  dplyr::distinct(name_long, iso_a2) |>
+  dplyr::rename(iso2_poly = iso_a2)
+
+codes <- codes |>
+  dplyr::left_join(codes_map, by = "name_long") |>
+  dplyr::mutate(iso2 = dplyr::coalesce(iso2, iso2_poly),
+                iso2_lower = tolower(iso2)) |>
+  dplyr::select(name_long, iso2_lower)
+
+# --------- download tiny flags locally (once) ----------
+flags_dir <- "assets/flags_rect"
+fs::dir_create(flags_dir)
+
+fetch_flags <- function(iso2_vec) {
+  iso2_vec <- unique(na.omit(iso2_vec))
+  tibble::tibble(iso2_lower = iso2_vec) |>
+    dplyr::mutate(flag_path = purrr::map_chr(iso2_lower, function(code){
+      dest <- file.path(flags_dir, sprintf("%s.png", code))
+      if (!file.exists(dest)) {
+        url <- sprintf("https://flagcdn.com/w40/%s.png", code)
+        try(curl::curl_download(url, dest, quiet = TRUE), silent = TRUE)
+      }
+      if (file.exists(dest)) dest else NA_character_
+    }))
+}
+flag_paths <- fetch_flags(codes$iso2_lower)
+
+# --------- extract a dominant (non-white) color from each flag ----------
+dominant_flag_color <- function(path) {
+  res <- try({
+    arr <- png::readPNG(path)          # H x W x 4 (RGBA, in 0..1)
+    h <- dim(arr)[1]; w <- dim(arr)[2]
+    rgb <- cbind(as.vector(arr[,,1]), as.vector(arr[,,2]), as.vector(arr[,,3]))
+    a   <- if (dim(arr)[3] >= 4) as.vector(arr[,,4]) else rep(1, nrow(rgb))
+    keep <- a > 0.8
+    rgb  <- rgb[keep, , drop = FALSE]
+    # drop near-white pixels
+    keep2 <- rowMeans(rgb) < 0.95
+    rgb <- rgb[keep2, , drop = FALSE]
+    if (nrow(rgb) < 50) rgb <- rgb[keep, , drop = FALSE]
+    set.seed(1)
+    km <- stats::kmeans(rgb, centers = min(3, nrow(rgb)), iter.max = 15)
+    dom <- km$centers[which.max(tabulate(km$cluster)), ]
+    grDevices::rgb(dom[1], dom[2], dom[3])
+  }, silent = TRUE)
+  if (inherits(res, "try-error")) "#444444" else res
+}
+
+flag_cols <- flag_paths |>
+  dplyr::mutate(col = vapply(flag_path, dominant_flag_color, character(1)))
+
+# --------- build plotting DF with flag positions and colors ----------
+dd_plot <- dd |>
+  dplyr::left_join(codes,      by = "name_long") |>
+  dplyr::left_join(flag_paths, by = "iso2_lower") |>
+  dplyr::left_join(flag_cols,  by = c("iso2_lower","flag_path")) |>
+  dplyr::mutate(col = dplyr::coalesce(col, "#444444"))
+
+# left margin positions (put flag & name at negative x)
+max_x   <- max(c(dd_plot$`2017`, dd_plot$`2025`), na.rm = TRUE)
+x_left  <- -0.2 * max_x       # flag center
+x_name  <- -0.05 * max_x       # country name (to the right of flag)
+
+# --------- plot: flags & names on the left; lines/points colored by flag color ----------
+p_dumbbell_25_17 <- ggplot(dd_plot) +
+  # dumbbell line
+  geom_segment(aes(x = `2017`, xend = `2025`, y = name_long, yend = name_long, colour = col),
+               linewidth = 0.9, alpha = 0.9, lineend = "round", show.legend = FALSE) +
+  # points
+  geom_point(aes(x = `2017`, y = name_long, colour = col), size = 2.4, show.legend = FALSE) +
+  geom_point(aes(x = `2025`, y = name_long, colour = col), size = 3.1, show.legend = FALSE) +
+  # flag + name on the left
+  ggimage::geom_image(aes(y = name_long, x = x_left, image = flag_path),
+                      size = 0.1, asp = 2/3, inherit.aes = FALSE, na.rm = TRUE) +
+  geom_text(aes(y = name_long, x = x_name, label = name_long),
+            size = 3.7, hjust = 1, inherit.aes = FALSE) +
+  # axes & labels
+  scale_colour_identity() +
+  scale_x_continuous(labels = lab_si_ha, expand = expansion(mult = c(0, 0.03))) +
+  labs(
+    title    = "Burned area — Summer 2025 vs 2017 (Top 20 countries)",
+    subtitle = "Summer is from early June till late August (meteorological). Each line shows the change in polygon-summed burned area between 2017 and 2025.",
+    x = "Burned area (ha)", y = NULL,
+    caption  = "Areas computed from perimeter geometry in an equal-area projection (EPSG:3035). Differences vs. official statistics are expected due to thresholds, timing, and mapping criteria."
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.text.y        = element_blank(),   # hide default country labels (we draw our own on the left)
+    axis.ticks.y       = element_blank(),
+    plot.margin        = margin(5.5, 5.5, 10, 110, "pt")  # extra left room for flags
+  ) +
+  coord_cartesian(xlim = c(-0.18 * max_x, NA), clip = "off")  # show left decorations
+
+p_dumbbell_25_17
+
+
+
+# ---- Emoji flag helper (robust) ----
+flag_from_iso2 <- function(iso2) {
+  iso2 <- toupper(as.character(iso2))
+  out  <- rep(NA_character_, length(iso2))
+  ok   <- !is.na(iso2) & nchar(iso2) == 2
+  if (any(ok)) {
+    chars <- strsplit(iso2[ok], "", fixed = TRUE)
+    out[ok] <- vapply(
+      chars,
+      function(cc) {
+        if (length(cc) != 2) return(NA_character_)
+        paste0(intToUtf8(127397 + utf8ToInt(cc[1])),
+               intToUtf8(127397 + utf8ToInt(cc[2])))
+      },
+      FUN.VALUE = character(1)
+    )
+  }
+  out
+}
+
+# --- build a robust ISO2 table (works even if map names differ) ---
+if (!requireNamespace("countrycode", quietly = TRUE)) install.packages("countrycode")
+library(countrycode)
+
+name_to_iso2 <- tibble::tibble(name_long = unique(ctry_multi$name_long)) |>
+  dplyr::mutate(
+    iso2 = countrycode(
+      name_long, origin = "country.name", destination = "iso2c",
+      custom_match = c("Czechia" = "CZ", "United Kingdom" = "GB",
+                       "North Macedonia" = "MK", "Kosovo" = "XK", "Moldova" = "MD")
+    )
+  )
+
+# fallback to map if any NA
+map_iso_from_poly <- eu_poly |>
+  sf::st_drop_geometry() |>
+  dplyr::distinct(name_long, iso_a2) |>
+  dplyr::rename(iso2_poly = iso_a2)
+
+name_to_iso2 <- name_to_iso2 |>
+  dplyr::left_join(map_iso_from_poly, by = "name_long") |>
+  dplyr::mutate(iso2 = dplyr::coalesce(iso2, iso2_poly),
+                iso2_lower = tolower(iso2)) |>
+  dplyr::select(name_long, iso2_lower)
+
+topN_multi <- ctry_multi |>
+  filter(year == 2025) |>
+  arrange(desc(burned_ha)) |>
+  slice_head(n = 10) |>
+  pull(name_long)
+
+# --- order so Top-1 (by 2025) is at the TOP ---
+order_2025 <- ctry_multi |>
+  dplyr::filter(year == 2025, name_long %in% topN_multi) |>
+  dplyr::arrange(dplyr::desc(burned_ha)) |>
+  dplyr::pull(name_long)
+
+df_plot <- ctry_multi |>
+  dplyr::filter(name_long %in% topN_multi) |>
+  dplyr::mutate(
+    name_long = forcats::fct_relevel(name_long, !!!rev(order_2025)),
+    year = factor(year)
+  )
+
+# --- right-side layout: positions are beyond the LONGEST bar (any year) ---
+max_x     <- max(df_plot$burned_ha, na.rm = TRUE)
+pad_label <- 0.06 * max_x     # where the numeric label goes (beyond all bars)
+gap_flag  <- 0.03 * max_x     # gap between label and flag
+gap_name  <- 0.03 * max_x     # gap between flag and country name
+
+vals_2025 <- df_plot |>
+  dplyr::filter(year == 2025) |>
+  dplyr::select(name_long, val_2025 = burned_ha)
+
+layout_df <- df_plot |>
+  dplyr::group_by(name_long) |>
+  dplyr::summarise(x_max = max(burned_ha, na.rm = TRUE), .groups = "drop") |>
+  dplyr::left_join(vals_2025,      by = "name_long") |>
+  dplyr::left_join(name_to_iso2,   by = "name_long") |>
+  dplyr::mutate(
+    x_label   = x_max + pad_label,             # numeric label (right-justified)
+    x_flag    = x_label + gap_flag,            # flag position (to the right)
+    x_country = x_flag  + gap_name,            # country name (even further right)
+    label_txt = scales::label_number(scale_cut = scales::cut_si("ha"))(val_2025)
+  )
+
+# --- make sure local PNG flags exist (ggimage) ---
+if (!requireNamespace("ggimage", quietly = TRUE)) install.packages("ggimage")
+if (!requireNamespace("curl", quietly = TRUE))    install.packages("curl")
+if (!requireNamespace("fs", quietly = TRUE))      install.packages("fs")
+library(ggimage); library(curl); library(fs)
+
+flags_dir <- "assets/flags_rect"
+fs::dir_create(flags_dir)
+
+fetch_flags <- function(iso2_vec) {
+  iso2_vec <- unique(na.omit(iso2_vec))
+  tibble::tibble(iso2_lower = iso2_vec) |>
+    dplyr::mutate(
+      flag_path = purrr::map_chr(iso2_lower, function(code){
+        dest <- file.path(flags_dir, sprintf("%s.png", code))
+        if (!file.exists(dest)) {
+          url <- sprintf("https://flagcdn.com/w40/%s.png", code)
+          try(curl::curl_download(url, dest, quiet = TRUE), silent = TRUE)
+        }
+        if (file.exists(dest)) dest else NA_character_
+      })
+    )
+}
+layout_df <- layout_df |>
+  dplyr::left_join(fetch_flags(layout_df$iso2_lower), by = "iso2_lower")
+
+# --- colors & scales ---
+lab_si_ha <- scales::label_number(scale_cut = scales::cut_si("ha"))
+col_map   <- c(`2017`="grey80", `2022`="grey65", `2023`="grey55", `2025`="#D64A05")
+
+# --- plot (labels aligned with flags, no names on the left) ---
+p_bars_multi <- ggplot(df_plot, aes(y = name_long, x = burned_ha, fill = year)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.65) +
+  scale_fill_manual(values = col_map, name = "Year") +
+  scale_x_continuous(labels = lab_si_ha, expand = expansion(mult = c(0, 0.55))) +
+  labs(
+    title    = "Top-10 (by 2025) — Summer burned area across years",
+    subtitle = "Summer is from early June till late August (meteorological).",
+    x = "Burned area (ha)", y = NULL,
+    caption = paste(
+      "Notes — EFFIS rapid perimeters (≈ ≥30–50 ha), Jun–Aug.",
+      "Areas from polygon geometry (EPSG:3035). Countries by max overlap (EU27 + EFTA + UK).",
+      "Differences vs official stats reflect thresholds, timing, mapping criteria.", sep=" "
+    )
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position   = "right",
+    panel.grid.major.y= element_blank(),
+    panel.grid.minor  = element_blank(),
+    axis.text.y       = element_blank(),   # <- remove country names on the left
+    axis.ticks.y      = element_blank(),
+    plot.margin       = margin(5.5, 140, 14, 5.5, "pt"),
+    plot.caption      = element_text(size = 9, colour = "grey25", lineheight = 1.1)
+  ) +
+  coord_cartesian(clip = "off") +
+  # value labels for 2025, right-justified and aligned with flags
+  geom_text(
+    data = layout_df,
+    aes(y = name_long, x = x_label, label = label_txt),
+    inherit.aes = FALSE, hjust = 1, vjust = 0.5, size = 3.7, colour = col_map["2025"]
+  ) +
+  # flags (local PNGs)
+  ggimage::geom_image(
+    data = dplyr::filter(layout_df, !is.na(flag_path)),
+    aes(y = name_long, x = x_flag, image = flag_path),
+    inherit.aes = FALSE, size = 0.07, asp = 2/3
+  ) +
+  # country names on the right (optional; keep if you want)
+  geom_text(
+    data = layout_df,
+    aes(y = name_long, x = x_country, label = name_long),
+    inherit.aes = FALSE, hjust = 0, vjust = 0.5, size = 4
+  )
+
+p_bars_multi
+
+
+
+
+# -------------------- Optional: severity trend figure --------------------
+if (dir.exists(sev_dir)) {
+  if (!requireNamespace("terra", quietly = TRUE)) install.packages("terra")
+  library(terra)
+  sev_files <- list.files(sev_dir, pattern="severity_\\d{4}\\.tiff$", full.names=TRUE)
+  if (length(sev_files)) {
+    eu_bbox <- st_bbox(eu_poly)
+    eu_ext  <- terra::ext(eu_bbox["xmin"], eu_bbox["xmax"], eu_bbox["ymin"], eu_bbox["ymax"])
+    sev_stack <- lapply(sev_files, function(fp){
+      yr <- stringr::str_extract(basename(fp), "\\d{4}")
+      r <- terra::rast(fp) |> terra::project("EPSG:3035") |> terra::crop(eu_ext)
+      data.frame(year = yr, value = terra::values(r))
+    })
+    sev_df <- bind_rows(sev_stack) |>
+      filter(!is.na(value)) |>
+      mutate(class = factor(value, levels=c(1,2,3), labels=c("Low","Moderate","High")))
+    
+    sev_summary <- sev_df |>
+      group_by(year, class) |>
+      summarise(pixels = n(), .groups="drop") |>
+      group_by(year) |>
+      mutate(share = pixels/sum(pixels))
+    
+    p_sev <- ggplot(sev_summary, aes(x=year, y=share, fill=class)) +
+      geom_col() +
+      scale_y_continuous(labels=scales::percent) +
+      labs(title="Fire severity distribution (2018–… local rasters)",
+           x=NULL, y="Share of burned pixels", fill="Severity",
+           caption = "Severity classes assumed: 1=Low, 2=Moderate, 3=High") +
+      theme_minimal(base_size=12)
+  }
+}
+
+# -------------------- Optional: 2023 country-total cross-check --------------------
+if (file.exists(ctry_tot_2023)) {
+  if (!requireNamespace("ggrepel", quietly = TRUE)) install.packages("ggrepel")
+  library(ggrepel)
+  ct2023 <- tryCatch(readxl::read_xlsx(ctry_tot_2023) |> janitor::clean_names(), error = function(e) NULL)
+  if (!is.null(ct2023)) {
+    cand_cntry <- names(ct2023)[str_detect(names(ct2023), "country|name")]
+    cand_ba    <- names(ct2023)[str_detect(names(ct2023), "burn|area|ha")]
+    if (length(cand_cntry) && length(cand_ba)) {
+      ct2023_small <- ct2023 |>
+        rename(country = all_of(cand_cntry[1]), burned_ha_official = all_of(cand_ba[1])) |>
+        mutate(across(everything(), as.character),
+               burned_ha_official = to_num(burned_ha_official))
+      
+      poly2023 <- ctry_multi |>
+        filter(year == 2023) |>
+        select(name_long, burned_ha) |>
+        mutate(country = name_long)
+      
+      crosscheck_2023 <- poly2023 |>
+        left_join(ct2023_small, by = "country") |>
+        mutate(diff = burned_ha - burned_ha_official)
+      
+      p_cc <- ggplot(crosscheck_2023, aes(burned_ha_official, burned_ha, label = country)) +
+        geom_abline(linetype = 2) +
+        geom_point() +
+        ggrepel::geom_text_repel(size = 2.7) +
+        scale_x_continuous(labels = lab_si_ha) +
+        scale_y_continuous(labels = lab_si_ha) +
+        labs(title = "Polygon sums vs. official 2023 country totals",
+             x = "Official burned area (ha, 2023 XLSX)", y = "Polygon-based burned area (ha)",
+             caption = "Expect diffs due to thresholds, update timing, mapping criteria.") +
+        theme_minimal(base_size = 11)
+    }
+  }
+}
+
+
+
+# -------------------- End --------------------
+# Objects you can print in Quarto:
+# hero, facet, bars, p_comp_stacked (if LC fields exist),
+# p_dumbbell_25_17, p_bars_multi, p_sev (if rasters exist), p_cc (if XLSX present).

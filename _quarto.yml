@@ -1,6 +1,9 @@
 project:
   type: website
   output-dir: _site
+  # All qmd chunks execute with the project root as the working directory, so
+  # posts/*.qmd can source("R/...") and read DATA/ with root-relative paths.
+  execute-dir: project
   # NOTE: wildfires-europe-2025-local.qmd stays frozen at repo root for now
   # (will be moved into posts/2025.qmd in a later phase). It is excluded from
   # the website render list here because it depends on DATA/effis_layer/,
@@ -8,9 +11,10 @@ project:
   render:
     - index.qmd
     - about.qmd
+    - posts/2026.qmd
 
 website:
-  title: "BURNS — Europe Wildfire Season Tracker"
+  title: "BURNS: Europe Wildfire Season Tracker"
   page-footer:
     left: "Pierre Beaucoral"
     right: "Built with Quarto"
@@ -20,11 +24,11 @@ website:
         href: index.qmd
       - text: "Seasons"
         menu:
-          # Placeholder entries. "2025" will be repointed to posts/2025.qmd
-          # once the frozen 2025 post is moved into the site (later phase).
+          # "2025" will be repointed to posts/2025.qmd once the frozen 2025
+          # post is moved into the site (later phase).
           - text: "2026 (current)"
-            href: index.qmd
-          - text: "2025 (archive — coming)"
+            href: posts/2026.qmd
+          - text: "2025 (archive, coming)"
             href: index.qmd
       - text: "About"
         href: about.qmd

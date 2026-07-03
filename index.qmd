@@ -3,58 +3,86 @@ title: "Europe Wildfire Season Tracker"
 subtitle: "EFFIS rapid perimeters, updated weekly during fire season"
 author: "Pierre Beaucoral"
 date: today
+execute:
+  freeze: false
 ---
 
-This tracker follows the European wildfire season as it unfolds. It builds on
-**EFFIS rapid perimeters** — the publicly mapped burn-scar polygons from the
-Copernicus Emergency Management Service, typically covering fires of roughly
-30–50 hectares and above. During the fire season (**June–September**) the site
-refreshes **weekly**: a pipeline fetches the latest perimeters, snapshots them
-under `DATA/snapshots/`, and the charts below re-render from the newest
-snapshot. Burned areas are computed directly from polygon geometry in an
-equal-area projection (EPSG:3035), and each perimeter is assigned to a country
-by maximum overlap with national borders — the same method as the 2025 season
-analysis this project grew from (it will be archived under *Seasons* soon).
-
-::: {.callout-note title="2026 season — coming soon"}
-The 2026 season data will load here once the automated fetch pipeline
-(`scripts/fetch_effis.R`) lands. Until then, this page is a scaffold: no
-numbers are shown because no data has been fetched yet. See the
-[About](about.qmd) page for what to expect and the data caveats.
-:::
-
-## Season at a glance
-
-*Placeholder — the envelope chart (2026 daily cumulative burned area against
-the range of past seasons) will render here from the latest snapshot.*
+This tracker follows Europe's wildfire season as it unfolds. Satellites spot
+large fires (roughly 30 hectares and up), and Europe's **EFFIS** service,
+part of the Copernicus programme, draws the outline of each burned area it
+can map. During the fire season (**June to September**) this site refreshes
+**weekly**: a pipeline fetches the newest outlines, stores a dated copy under
+`DATA/snapshots/`, and every chart re-renders from that copy. Fire sizes are
+measured directly from the mapped shapes, in a map projection that keeps
+areas honest, and each fire is assigned to the country it overlaps most. Same
+method as the 2025 season analysis this project grew from.
 
 ```{r}
-#| label: tracker-skeleton
-#| eval: false
-#| code-summary: "Show intended pipeline structure (not yet active)"
+#| label: tracker-data
 
-# ---- Intended structure of the live tracker (activates once data lands) ----
+# Reads the SAME cached envelope object as posts/2026.qmd (identical cache
+# key via build_envelope) -- nothing heavy is recomputed here.
+library(sf)
+library(dplyr)
+library(tibble)
+library(purrr)
+library(lubridate)
+library(ggplot2)
+library(scales)
+library(janitor)
+library(rnaturalearth)
 
-# 1) Source the shared helper library
-source(file.path("R", "helpers.R"))  # parsing utilities, ha label formatter
-source(file.path("R", "geo.R"))      # Europe polygons, perimeter reading, country tagging
-source(file.path("R", "theme.R"))    # shared palette + theme_burns()
-source(file.path("R", "cache.R"))    # disk cache for expensive geometry ops
+Sys.setenv(OGR_GEOJSON_MAX_OBJ_SIZE = "0")
 
-# 2) Load the latest EFFIS snapshot written by scripts/fetch_effis.R
-snapshot_dirs <- sort(list.dirs(file.path("DATA", "snapshots"), recursive = FALSE))
-latest <- snapshot_dirs[length(snapshot_dirs)]
+source(file.path("R", "helpers.R"))
+source(file.path("R", "geo.R"))
+source(file.path("R", "cache.R"))
+source(file.path("R", "theme.R"))
+source(file.path("R", "pipeline.R"))
+source(file.path("R", "plots.R"))
+source(file.path("scripts", "latest_snapshot.R"))
 
-# 3) Read perimeters, tag countries, compute burned area (EPSG:3035)
-# eu  <- load_europe_polygons()
-# ba  <- read_effis_perimeters(file.path(latest, ...)) |> tag_countries(eu)
+snap <- latest_snapshot()
+stopifnot(!is.na(snap))
+eu <- get_eu()
 
-# 4) Envelope chart: 2026 daily cumulative burned area vs. past-season range
-# p_envelope <- ...
-# p_envelope
+envelope <- build_envelope(
+  hist_years = 2017:2025, year_current = 2026L,
+  snapshot_dir = snap, eu = eu,
+  start_month = 6L, end_month = 9L
+)
+
+m <- envelope$meta
+as_of_lab <- paste(day(m$as_of_date), month.name[month(m$as_of_date)])
+
+cap_envelope <- sprintf(
+  paste(
+    "Cumulative burned area since 1 June: 2026 to date against the 2017–2025",
+    "range (shaded band: min–max; dashed line: median). The 2026 line stops at",
+    "its last mapped perimeter (%s)."
+  ),
+  as_of_lab
+)
 ```
 
-## What burned, where
+## Season at a glance, as of `r as_of_lab` `r m$year_current`
 
-*Placeholder — hero map of the current season's burn scars, monthly panels,
-and country rankings will appear here as the season progresses.*
+| Burned area since 1 June | Mapped perimeters since 1 June | vs 2017–2025 median to date |
+|:---:|:---:|:---:|
+| **`r lab_si_ha(m$current_cum_ha)`** | **`r comma(m$current_n_fires)`** | **`r sprintf("%.0f%%", m$pct_vs_median)`** |
+
+: Totals count only the parts of each fire inside Europe (snapshot `r basename(snap)`). Fire *counts* are not comparable across years because the detection system changed; the median comparison uses burned *area*. Details on the [season page](posts/2026.qmd). {#tbl-glance}
+
+```{r}
+#| label: tracker-envelope
+#| fig-width: 9.5
+#| fig-height: 5.5
+#| fig-cap: !expr cap_envelope
+
+plot_envelope(envelope)
+```
+
+**The full picture** (hero and interactive maps, country rankings, raw and
+normalized by land area, re-burn analysis, and what vegetation is burning)
+lives on the **[2026 season page](posts/2026.qmd)**, updated with each
+snapshot.

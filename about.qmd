@@ -14,36 +14,51 @@ under *Seasons*).
 
 ## Data source
 
-All fire perimeters come from **EFFIS** (European Forest Fire Information
-System), part of the **Copernicus Emergency Management Service**. EFFIS rapid
-perimeters are satellite-detected, automatically mapped burn-scar polygons,
-typically covering fires of roughly **≥ 30–50 hectares**.
+All fire outlines come from **EFFIS** (European Forest Fire Information
+System), part of the **Copernicus Emergency Management Service**. EFFIS draws
+the outline of each burned area it can detect from satellite imagery,
+automatically, and typically only for fires of roughly **30 to 50 hectares
+and above**.
 
 Key caveats:
 
 - **Rapid perimeters undercount small fires** and are revised over time as
   mapping is updated.
+- **Current-season numbers will move.** Because rapid mapping is revised
+  (outlines get refined, added, and merged), every weekly refresh can change
+  the current season's figures. Each page therefore pins the exact snapshot
+  date it was computed from in its figure captions; a later re-render is not
+  expected to reproduce earlier figures exactly, by design.
 - **They differ from official national statistics**, which use different
   thresholds, definitions of burned area, and may include smaller fires.
   Numbers here are estimates from mapped polygons, not official totals.
 - **Sensor transition:** EFFIS mapping has been transitioning from
   MODIS-based to Sentinel-2-based detection, which affects comparability of
-  fire counts and minimum detectable size across years. Multi-year
-  comparisons should be read with this in mind.
-- **Country attribution** uses maximum spatial overlap with national borders,
-  which can misallocate totals for fires in border areas.
-- **Seasonal framing:** the tracker uses the meteorological definition of the
-  season, which may exclude late-season fires outside the June–September
-  window.
+  fire counts and minimum detectable size across years. Fire *counts* roughly
+  doubled from 2023 to 2024 because smaller fires became detectable, not
+  because fire activity doubled, so cross-year comparisons on this site use
+  burned *area*, which is dominated by large fires and much less sensitive to
+  the detection threshold.
+- **The archive starts in 2016.** Earlier seasons do not exist in this EFFIS
+  layer, so multi-year comparison bands use 2017 onward.
+- **Country attribution** uses maximum spatial overlap with national borders
+  (mainland-Europe crop), which can misallocate totals for fires in border
+  areas. The EFFIS country attribute is kept as a cross-check only.
+- **Seasonal framing and windows:** the tracker uses the meteorological
+  definition of the season, which may exclude late-season fires outside the
+  June–September window. Season-comparison charts (like the envelope) use the
+  1 June to 30 September window; season-page maps and country rankings cover
+  everything mapped since 1 January. Figure captions state which window they
+  use.
 
 ## Disclaimer
 
 These figures are intended for **analytical and exploratory purposes** only.
-They provide a comparative, transparent view of mapped fire polygons — not a
+They provide a comparative, transparent view of mapped fire polygons, not a
 replacement for national reporting. For policy, management, or operational
 decisions, refer to authoritative national and European reporting systems.
 
 ## Author & code
 
 Built by **Pierre Beaucoral**. Code and pipeline: *link to repository
-placeholder — added once the repo is published*.
+placeholder, added once the repo is published*.
