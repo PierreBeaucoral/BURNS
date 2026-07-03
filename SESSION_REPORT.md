@@ -30,3 +30,29 @@
 **Status:**
 - Done: Phase 1a (helpers, critic-passed), 1b (endpoint research), 1c (fetch pipeline + snapshot), website scaffold
 - Pending: Phase 2 — parameterized 2026 state-of-the-season page (envelope chart, normalized rankings, recurrence analysis, 2026-vs-2025) with emphasis on visual quality; Phase 3 remainder — leaflet interactive map, critic review of scaffold; final render + quality gate; user decision on GitHub publish
+
+## 2026-07-03 (evening) — Phase 2/2b/3 complete: season page, new viz, quality gate
+
+**Operations:**
+- posts/2026.qmd built (envelope, hero map, leaflet, countries+flags, re-burn, land cover) then extended with gallery of scars, Natura 2000 analysis, calendar heatmap
+- index.qmd upgraded to live tracker (3 headline numbers + shared envelope)
+- Writer polish pass (winter-fires narrative thread, connective flow, Aude line)
+- Both Opus critics ran; all blockers fixed; 2 residual one-liners applied by orchestrator
+- Deploy model reworked: CI render deleted, scripts/update_site.sh local flow
+
+**Decisions:**
+- Local-render-and-publish over CI rendering (EFFIS server too flaky for CI; data 550 MB; rnaturalearthhires off-CRAN) — critic-recommended, experience-confirmed
+- ALL cache keys snapshot-aware (stale-weekly-data trap closed)
+
+**Results:**
+- writer-critic (Opus): 91/100 PASS; winter-surge figure independently verified real (180,638 ha, 6,620 perimeters, no artifact)
+- coder-critic (Opus): 74 FAIL round 1 → 92/100 PASS round 2; all four headline numbers logic-verified
+- Headline findings: summer-to-date at 201% of median; 181k ha burned Jan-May (peak week 23 Feb); re-burn 42.7% (France 67% re-burn vs Iberia mostly new ground); Natura 2000 share 24% vs 32% median
+- 4 real bugs caught by verify loops: GEOMETRYCOLLECTION-EMPTY silent drop, %V strptime silent failure, summarise() sequencing, NBSP regex
+
+**Commits:**
+- `ed50fa5` Phase 2 season page; `21ebec3` Phase 2b viz; `08b6c11` writer polish; `74f48fb` critic fixes; (pending) residual one-liners
+
+**Status:**
+- Done: full pipeline, website, 2026 page, quality gate passed (aggregate ~91-92)
+- Pending: user decision on GitHub publish (gh repo + quarto publish gh-pages); September retrospective ideas in quality_reports/viz_ideas_2026.md

@@ -44,6 +44,15 @@ CURRENT_YEAR="$(date +%Y)"
 ARCHIVE_START_YEAR=2016
 SNAPSHOT_DATE="$(date +%Y-%m-%d)"
 SNAPSHOT_DIR="DATA/snapshots/${SNAPSHOT_DATE}"
+# With --no-fetch, gate against the newest existing snapshot instead of
+# today's (re-rendering an already-fetched snapshot on a later day is valid).
+if [[ "${1:-}" == "--no-fetch" ]]; then
+  newest="$(ls -d DATA/snapshots/*/ 2>/dev/null | sort | tail -1)"
+  if [[ -n "$newest" ]]; then
+    SNAPSHOT_DIR="${newest%/}"
+    SNAPSHOT_DATE="$(basename "$SNAPSHOT_DIR")"
+  fi
+fi
 
 #' Completeness gate: confirm every expected ba_<year>.geojson file
 #' (start_year..end_year inclusive) exists in snapshot_dir. Prints a clear

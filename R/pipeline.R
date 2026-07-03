@@ -257,7 +257,8 @@ clean_polygons <- function(x) {
 #' @param tol_m simplification tolerance in metres (CRS 3035 is metric), default 100
 #' @return sfc, single unioned (multi)polygon geometry, CRS 3035
 get_historical_footprint <- function(years, snapshot_dir, eu, tol_m = 100, version = 3) {
-  key <- sprintf("historical_footprint_%d_%d_tol%d", min(years), max(years), tol_m)
+  key <- sprintf("historical_footprint_%d_%d_tol%d_snap%s",
+                 min(years), max(years), tol_m, basename(snapshot_dir))
 
   cached(key, {
     per_year_union <- lapply(years, function(y) {

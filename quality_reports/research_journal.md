@@ -34,3 +34,17 @@
 **Score:** N/A
 **Verdict:** Phase 2 re-scoped per user: state-of-the-season visual page (season 2 weeks old), envelope baseline 2017–2025, area-not-counts comparability rule
 **Report:** quality_reports/plans/2026-07-02_wildfires-2026-follow-up.md (revised)
+
+### 2026-07-03 23:30 — coder-critic (Opus), round 2
+**Phase:** Verification
+**Target:** full technical stack (commit 74f48fb)
+**Score:** 92/100 PASS (round 1: 74 FAIL — CI breaks, stale-cache trap; both resolved)
+**Verdict:** all headline numbers logic-verified; deploy model local-render-and-publish; 2 residual one-liners applied by orchestrator post-review
+**Report:** agent transcript (session)
+
+### 2026-07-03 23:00 — writer-critic (Opus)
+**Phase:** Verification
+**Target:** posts/2026.qmd, index.qmd, about.qmd prose
+**Score:** 91/100 PASS (conditional B1 resolved: winter surge verified against raw snapshot)
+**Verdict:** voice standard met, zero em-dashes, detection-shift caveat skim-proof
+**Report:** agent transcript (session)
