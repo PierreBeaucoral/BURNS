@@ -22,7 +22,10 @@ with weekly auto-refresh scaffolding.
 3. Year as a Quarto parameter; no hardcoded 2025/2026 in analysis code.
 
 ### Phase 2 — 2026 follow-up content
-4. Envelope chart: cumulative 2026 burned area vs 2008–2025 min–max band + median.
+4. Envelope chart: cumulative 2026 burned area vs 2017–2025 min–max band + median.
+   (REVISED 2026-07-03: WFS archive starts 2016 — 2010/2012/2014 return zero features.
+   Also: counts double 2023→2024 from the MODIS→Sentinel-2 detection shift; envelope
+   uses AREA, and all count-based claims carry the comparability caveat.)
 5. Normalized country rankings (% of national land area, alongside raw ha).
 6. Recurrence analysis: 2026 scars ∩ prior-year scars (2017/2022/2023/2025) — new land
    vs re-burn; Aude/France callout.
