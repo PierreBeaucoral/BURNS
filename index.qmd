@@ -1,0 +1,60 @@
+---
+title: "Europe Wildfire Season Tracker"
+subtitle: "EFFIS rapid perimeters, updated weekly during fire season"
+author: "Pierre Beaucoral"
+date: today
+---
+
+This tracker follows the European wildfire season as it unfolds. It builds on
+**EFFIS rapid perimeters** — the publicly mapped burn-scar polygons from the
+Copernicus Emergency Management Service, typically covering fires of roughly
+30–50 hectares and above. During the fire season (**June–September**) the site
+refreshes **weekly**: a pipeline fetches the latest perimeters, snapshots them
+under `DATA/snapshots/`, and the charts below re-render from the newest
+snapshot. Burned areas are computed directly from polygon geometry in an
+equal-area projection (EPSG:3035), and each perimeter is assigned to a country
+by maximum overlap with national borders — the same method as the 2025 season
+analysis this project grew from (it will be archived under *Seasons* soon).
+
+::: {.callout-note title="2026 season — coming soon"}
+The 2026 season data will load here once the automated fetch pipeline
+(`scripts/fetch_effis.R`) lands. Until then, this page is a scaffold: no
+numbers are shown because no data has been fetched yet. See the
+[About](about.qmd) page for what to expect and the data caveats.
+:::
+
+## Season at a glance
+
+*Placeholder — the envelope chart (2026 daily cumulative burned area against
+the range of past seasons) will render here from the latest snapshot.*
+
+```{r}
+#| label: tracker-skeleton
+#| eval: false
+#| code-summary: "Show intended pipeline structure (not yet active)"
+
+# ---- Intended structure of the live tracker (activates once data lands) ----
+
+# 1) Source the shared helper library
+source(file.path("R", "helpers.R"))  # parsing utilities, ha label formatter
+source(file.path("R", "geo.R"))      # Europe polygons, perimeter reading, country tagging
+source(file.path("R", "theme.R"))    # shared palette + theme_burns()
+source(file.path("R", "cache.R"))    # disk cache for expensive geometry ops
+
+# 2) Load the latest EFFIS snapshot written by scripts/fetch_effis.R
+snapshot_dirs <- sort(list.dirs(file.path("DATA", "snapshots"), recursive = FALSE))
+latest <- snapshot_dirs[length(snapshot_dirs)]
+
+# 3) Read perimeters, tag countries, compute burned area (EPSG:3035)
+# eu  <- load_europe_polygons()
+# ba  <- read_effis_perimeters(file.path(latest, ...)) |> tag_countries(eu)
+
+# 4) Envelope chart: 2026 daily cumulative burned area vs. past-season range
+# p_envelope <- ...
+# p_envelope
+```
+
+## What burned, where
+
+*Placeholder — hero map of the current season's burn scars, monthly panels,
+and country rankings will appear here as the season progresses.*

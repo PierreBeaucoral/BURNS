@@ -1,0 +1,53 @@
+project:
+  type: website
+  output-dir: _site
+  # NOTE: wildfires-europe-2025-local.qmd stays frozen at repo root for now
+  # (will be moved into posts/2025.qmd in a later phase). It is excluded from
+  # the website render list here because it depends on DATA/effis_layer/,
+  # which is not populated in this scaffold phase.
+  render:
+    - index.qmd
+    - about.qmd
+
+website:
+  title: "BURNS — Europe Wildfire Season Tracker"
+  page-footer:
+    left: "Pierre Beaucoral"
+    right: "Built with Quarto"
+  navbar:
+    left:
+      - text: "Tracker"
+        href: index.qmd
+      - text: "Seasons"
+        menu:
+          # Placeholder entries. "2025" will be repointed to posts/2025.qmd
+          # once the frozen 2025 post is moved into the site (later phase).
+          - text: "2026 (current)"
+            href: index.qmd
+          - text: "2025 (archive — coming)"
+            href: index.qmd
+      - text: "About"
+        href: about.qmd
+
+format:
+  html:
+    theme:
+      light: minty
+      dark: darkly
+    respect-user-color-scheme: true
+    highlight-style: tango
+    code-fold: true
+    code-summary: "Show code"
+    code-tools: true
+    toc: true
+    toc-depth: 3
+    smooth-scroll: true
+    lightbox: true
+    link-external-newwindow: true
+    df-print: paged
+
+execute:
+  freeze: auto
+  echo: true
+  warning: false
+  message: false

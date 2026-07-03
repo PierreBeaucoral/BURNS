@@ -1,0 +1,114 @@
+# ==============================================================================
+# render.yml — weekly render & deploy of the BURNS wildfire season tracker
+#
+# STATUS: SCAFFOLD ONLY.
+#   - NO deployment happens until the user pushes this repository to GitHub.
+#   - GitHub Pages must be enabled in the repo settings (Settings > Pages >
+#     Source: "GitHub Actions") before the deploy step can succeed.
+#   - The data fetch step is guarded: scripts/fetch_effis.R does not exist yet
+#     (it lands in a later phase), so the step is skipped / non-blocking.
+#
+# Schedule: Mondays 06:00 UTC, June–September only (the fire season).
+# ==============================================================================
+
+name: Render and deploy tracker
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly on Monday at 06:00 UTC, but only June through September
+    - cron: '0 6 * 6-9 1'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one render/deploy at a time; don't cancel an in-flight production deploy
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies for sf/terra
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdal-dev libgeos-dev libproj-dev libudunits2-dev
+
+      - name: Set up R (with RSPM binaries)
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install R package dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::sf
+            any::terra
+            any::dplyr
+            any::tidyr
+            any::stringr
+            any::lubridate
+            any::ggplot2
+            any::readxl
+            any::forcats
+            any::rnaturalearth
+            any::rnaturalearthdata
+            any::janitor
+            any::scales
+            any::patchwork
+            any::slider
+            any::maptiles
+            any::tidyterra
+            any::ggspatial
+            any::countrycode
+            any::ggimage
+            any::curl
+            any::fs
+            any::png
+            any::purrr
+            any::readr
+            any::leaflet
+            any::htmlwidgets
+            any::gifski
+            any::gganimate
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      # scripts/fetch_effis.R is delivered in a later phase; until then this
+      # step is a no-op (continue-on-error keeps the scaffold green).
+      - name: Fetch latest EFFIS snapshot
+        continue-on-error: true
+        run: |
+          if [ -f scripts/fetch_effis.R ]; then
+            Rscript scripts/fetch_effis.R
+          else
+            echo "scripts/fetch_effis.R not present yet — skipping data fetch."
+          fi
+
+      - name: Render website
+        run: quarto render
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: render
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

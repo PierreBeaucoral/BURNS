@@ -27,3 +27,5 @@ _site/
 *.aux
 *.log
 *.toc
+
+**/*.quarto_ipynb
