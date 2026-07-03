@@ -70,7 +70,7 @@ cap_envelope <- sprintf(
 
 | How much has burned since 1 June | In how many separate fires | Compared with a typical recent season |
 |:---:|:---:|:---:|
-| **`r lab_si_ha(m$current_cum_ha)`** | **`r comma(m$current_n_fires)`** | **`r sprintf("%.0f%%", m$pct_vs_median)`** |
+| **`r lab_si_ha(m$current_cum_ha)`** | **`r comma(m$current_n_fires)`** | **`r if (is.na(m$pct_vs_median)) "n/a (too early in season)" else sprintf("%.0f%%", m$pct_vs_median)`** |
 
 : Totals count only the parts of each fire inside Europe (snapshot `r basename(snap)`). Fire *counts* are not comparable across years because the detection system changed; the median comparison uses burned *area*. Details on the [season page](posts/2026.qmd). {#tbl-glance}
 

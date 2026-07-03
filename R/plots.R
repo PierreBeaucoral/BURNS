@@ -85,12 +85,7 @@ plot_envelope <- function(envelope, col_current = "#D64A05") {
     ggplot2::scale_y_continuous(labels = lab_si_ha, expand = ggplot2::expansion(mult = c(0, 0.05))) +
     ggplot2::labs(
       x = NULL,
-      y = "Cumulative burned area since 1 June (ha)",
-      caption = paste(
-        "EFFIS rapid perimeters (≈ ≥30–50 ha), Europe-clipped (EU27 + EFTA + UK + Balkans).",
-        "Areas from polygon geometry in EPSG:3035; season window 1 Jun–30 Sep.",
-        sep = "\n"
-      )
+      y = "Cumulative burned area since 1 June (ha)"
     ) +
     theme_burns(base_size = 12)
 }

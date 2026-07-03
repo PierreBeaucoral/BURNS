@@ -26,7 +26,7 @@ Key caveats, roughly in order of how much they should shape your reading:
   mapping is updated.
 - **They differ from official national statistics**, which use different
   thresholds, definitions of burned area, and may include smaller fires.
-  Numbers here are estimates from mapped polygons, not official totals.
+  Numbers here are estimates from mapped fire outlines, not official totals.
 - **Sensor transition:** EFFIS mapping has been transitioning from
   MODIS-based to Sentinel-2-based detection, which affects comparability of
   fire counts and minimum detectable size across years. Fire *counts* roughly
@@ -40,16 +40,17 @@ Key caveats, roughly in order of how much they should shape your reading:
   date it was computed from in its figure captions; a later re-render is not
   expected to reproduce earlier figures exactly, by design.
 - **Country attribution** uses maximum spatial overlap with national borders
-  (mainland-Europe crop), which can misallocate totals for fires in border
-  areas. The EFFIS country attribute is kept as a cross-check only.
+  (mainland-Europe crop, meaning overseas territories excluded), which can
+  misallocate totals for fires in border areas. The EFFIS country attribute
+  is kept as a cross-check only.
 - **The archive starts in 2016.** Earlier seasons do not exist in this EFFIS
   layer, so multi-year comparison bands use 2017 onward.
 - **Seasonal framing and windows:** the tracker uses the meteorological
   definition of the season, which may exclude late-season fires outside the
-  June–September window. Season-comparison charts (like the envelope) use the
-  1 June to 30 September window; season-page maps and country rankings cover
-  everything mapped since 1 January. Figure captions state which window they
-  use.
+  June–September window. Season-comparison charts (like the cumulative-area
+  chart) use the 1 June to 30 September window; season-page maps and country
+  rankings cover everything mapped since 1 January. Figure captions state
+  which window they use.
 
 ## Disclaimer
 

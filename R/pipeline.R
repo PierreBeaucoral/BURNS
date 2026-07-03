@@ -37,12 +37,20 @@ tagged_window <- function(year, snapshot_dir, eu, start_date, end_date) {
   tag_countries(ba_win, eu$poly, eu$union)
 }
 
-#' Cached wrapper around tagged_window(), keyed by year + exact date window so
-#' distinct windows (summer vs season-to-date vs full-year) never collide.
+#' Cached wrapper around tagged_window(), keyed by year + exact date window +
+#' snapshot so distinct windows (summer vs season-to-date vs full-year) never
+#' collide, AND a re-fetched snapshot for the same dates never serves a stale
+#' .rds. Every ba_<year>.geojson file -- historical years included -- gets
+#' re-downloaded and can carry revised perimeters on every snapshot (EFFIS
+#' rapid mapping is corrected over time), so the snapshot identifier is
+#' threaded into the key for ALL years, not just the in-progress current
+#' year. The one-time recompute this forces on a new snapshot is an accepted,
+#' documented cost (see cache.R contract comment).
 #' @return sf object, see tagged_window()
 get_tagged_window <- function(year, snapshot_dir, eu, start_date, end_date, version = 1) {
   key <- sprintf(
-    "tagged_%d_%s_%s", year, format(start_date, "%Y%m%d"), format(end_date, "%Y%m%d")
+    "tagged_%d_%s_%s_snap%s",
+    year, format(start_date, "%Y%m%d"), format(end_date, "%Y%m%d"), basename(snapshot_dir)
   )
   cached(key, tagged_window(year, snapshot_dir, eu, start_date, end_date), version = version)
 }
@@ -114,9 +122,14 @@ build_daily_cum <- function(tagged_sf, start_date, end_date) {
 #' @return list(hist_daily, band, current, current_full_window, ref_dates, meta)
 build_envelope <- function(hist_years, year_current, snapshot_dir, eu,
                             start_month = 6L, end_month = 9L, as_of_date = NULL, version = 1) {
+  # Snapshot-aware: the envelope is built from get_tagged_summer() calls over
+  # both historical AND current years, all read from snapshot_dir's
+  # ba_<year>.geojson files, which can be revised on a re-fetch (see cache.R
+  # contract comment) -- omitting the snapshot here would silently serve a
+  # stale envelope after a new weekly snapshot lands.
   key <- sprintf(
-    "envelope_%d_%d_%d_%d_%d",
-    min(hist_years), max(hist_years), year_current, start_month, end_month
+    "envelope_%d_%d_%d_%d_%d_snap%s",
+    min(hist_years), max(hist_years), year_current, start_month, end_month, basename(snapshot_dir)
   )
 
   cached(key, {
@@ -156,8 +169,22 @@ build_envelope <- function(hist_years, year_current, snapshot_dir, eu,
 
     as_of_day_idx <- as.integer(as_of - cur_start) + 1L
     median_to_date_ha <- band$median_ha[band$day_idx == as_of_day_idx]
+    if (length(median_to_date_ha) == 0L) median_to_date_ha <- NA_real_
     current_cum_ha <- if (nrow(cur_daily)) cur_daily$cum_ha[nrow(cur_daily)] else 0
     current_n_fires <- if (nrow(cur_daily)) cur_daily$cum_fires[nrow(cur_daily)] else 0L
+
+    # Guard: very early in the season the historical median-to-date can be
+    # exactly (or numerically) zero -- no historical fires yet by this
+    # calendar day -- which would make pct_vs_median Inf/NaN and silently
+    # corrupt the "vs a typical season" prose. Return NA with a warning
+    # instead of a bogus ratio; callers (index.qmd, posts/2026.qmd) display
+    # "n/a (too early in season)" when this is NA.
+    pct_vs_median <- if (is.na(median_to_date_ha) || abs(median_to_date_ha) < 1e-9) {
+      warning("median_to_date_ha is zero or unavailable (too early in season) -- pct_vs_median set to NA")
+      NA_real_
+    } else {
+      100 * current_cum_ha / median_to_date_ha
+    }
 
     list(
       hist_daily = hist_daily,
@@ -175,7 +202,7 @@ build_envelope <- function(hist_years, year_current, snapshot_dir, eu,
         current_cum_ha = current_cum_ha,
         current_n_fires = current_n_fires,
         median_to_date_ha = median_to_date_ha,
-        pct_vs_median = 100 * current_cum_ha / median_to_date_ha
+        pct_vs_median = pct_vs_median
       )
     )
   }, version = version)
@@ -379,7 +406,10 @@ summarise_weekly <- function(tg, year, lc_cols) {
 #' @param lc_cols character vector of land-cover share column names
 #' @return tibble, see summarise_weekly()
 build_weekly_area <- function(years, current_year, current_tagged, snapshot_dir, eu, lc_cols, version = 1) {
-  key <- sprintf("weekly_area_%d_%d", min(years), current_year)
+  # Snapshot-aware: clip_europe_year() reads ba_<year>.geojson directly from
+  # snapshot_dir for every historical year, which can carry revised
+  # perimeters on a re-fetch (see cache.R contract comment).
+  key <- sprintf("weekly_area_%d_%d_snap%s", min(years), current_year, basename(snapshot_dir))
 
   cached(key, {
     hist_part <- purrr::map_dfr(years, function(y) {

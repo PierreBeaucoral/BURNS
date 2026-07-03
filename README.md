@@ -14,16 +14,47 @@ Summer 2025 season analysis, which remains the reference for the methodology.
 
 ## Quickstart
 
-```bash
-# 1) Fetch the latest EFFIS data (script lands in a later phase)
-Rscript scripts/fetch_effis.R
-
-# 2) Render the website
-quarto render
+```r
+# 0) One-time setup: rnaturalearthhires is not on CRAN (r-universe only),
+#    and is required for the Europe reference polygons in R/geo.R.
+install.packages("rnaturalearthhires", repos = "https://ropensci.r-universe.dev")
 ```
 
-The rendered site is written to `_site/`. The scaffold renders without any
-data; the tracker page shows placeholders until a snapshot exists.
+```bash
+# 1) Fetch the latest EFFIS snapshot, gate on completeness, and render
+scripts/update_site.sh
+
+# 2) Publish, once you're happy with the rendered site (separate, explicit step)
+quarto publish gh-pages --no-prompt
+```
+
+The rendered site is written to `_site/`. `scripts/update_site.sh` fetches
+2016 through the current year, aborts if any year's `ba_<year>.geojson` is
+missing from today's snapshot, then runs `quarto render` (also aborting on a
+nonzero exit). It never publishes on its own -- publishing to GitHub Pages is
+always a separate command you run yourself. See `scripts/update_site.sh`
+`--no-fetch` to re-render an already-fetched snapshot.
+
+## Weekly refresh flow (local, not CI)
+
+This project **does not** render or fetch data via GitHub Actions. During
+fire season (June–September), refresh the site weekly by running
+`scripts/update_site.sh` locally, checking the rendered `_site/` output, and
+then running `quarto publish gh-pages --no-prompt` yourself. Why local
+instead of CI:
+
+- **EFFIS's WFS server is too flaky for unattended CI fetching.** Uncapped
+  requests hang indefinitely and paged requests intermittently 502/500;
+  `scripts/fetch_effis.R` compensates with forced HTTP/1.1, retries, and
+  per-page timeouts (see that script's header for the verified server
+  facts), which is manageable interactively but not safe to leave unattended
+  on a CI schedule.
+- **The raw data is too heavy for the repo.** Per-year EFFIS GeoJSON
+  snapshots run from a few MB to over 100 MB each; `DATA/snapshots/` is
+  git-ignored and re-fetched locally instead.
+- **`rnaturalearthhires` is not on CRAN.** It ships only from the ropensci
+  r-universe (see Quickstart above), which complicates an automated CI
+  install.
 
 ## Directory layout
 
@@ -33,10 +64,9 @@ data; the tracker page shows placeholders until a snapshot exists.
 ├── index.qmd            # live tracker page (current season)
 ├── about.qmd            # project description, data caveats, disclaimer
 ├── R/                   # shared helper library (helpers, geo, flags, cache, theme)
-├── scripts/             # pipeline scripts (fetch_effis.R, coming)
+├── scripts/              # pipeline scripts: fetch_effis.R, update_site.sh, latest_snapshot.R
 ├── DATA/snapshots/      # dated EFFIS data snapshots (git-ignored, re-fetchable)
-├── posts/               # frozen season posts (2025 post moves here later)
-└── .github/workflows/   # weekly render & deploy action (June–September)
+└── posts/               # frozen season posts (2025 post moves here later)
 ```
 
 ## Data source & attribution

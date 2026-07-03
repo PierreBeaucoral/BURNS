@@ -214,9 +214,9 @@ Two numbers set the scene, and they cover different time windows. Since
 **1 June**, the start of the summer season, satellites have mapped about
 **`r comma(round(season_ha, -3))` hectares** of burned land in Europe, across
 `r comma(season_n)` separate fire outlines. That is roughly
-`r round(season_ha / 10540)` times the area of the city of Paris, and about
-**`r sprintf("%.0f%%", pct_vs_med)`** of what a typical recent season had
-burned by this date (`r comma(round(median_ha, -3))` hectares). But 2026 did
+`r round(season_ha / 10500)` times the area of the city of Paris, and about
+**`r if (is.na(pct_vs_med)) "n/a (too early in season)" else sprintf("%.0f%%", pct_vs_med)`** of what a typical recent season had
+burned by this date (`r if (is.na(median_ha)) "n/a" else comma(round(median_ha, -3))` hectares). But 2026 did
 not start in June. Counting from **1 January**, the total is already about
 **`r comma(round(full_ha, -3))` hectares**, and an unusually busy late winter
 and spring drove most of that gap, weeks before most people start watching
@@ -239,8 +239,8 @@ plot_envelope(envelope)
 Read this like a race against the past. The grey band is the space between
 the calmest and the most severe of the last nine seasons, day by day. The
 dashed line is the middle of the pack. The orange line is 2026, and it stops
-where the data stops, on `r as_of_lab`. One month in, 2026 is running above
-the median (about `r sprintf("%.1f", pct_vs_med / 100)` times it) but well
+where the data stops, on `r as_of_lab`. One month in, 2026 is
+`r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)` but well
 inside the band: several recent years, like 2017, 2022 and 2025, were further
 along at this date. My honest reading is *elevated, not exceptional, so far*.
 Most of a European fire season happens in July and August. This line has most
@@ -286,9 +286,9 @@ of late-winter and early-spring weeks that most other years do not show at
 this intensity. That is the unusually busy January-to-May window from the
 introduction, now visible on its own. The single busiest week of 2026 so far
 was the week of `r peak_2026_lab`, when about
-`r lab_si_ha(peak_2026$area_ha)` burned in that ISO week alone. The grey band
-on the right marks weeks that have not happened yet: the row simply stops,
-honestly, rather than being padded with zeros.
+`r lab_si_ha(peak_2026$area_ha)` burned in that single week alone. The grey band
+on the right marks weeks that have not happened yet: the row simply stops
+there, rather than being padded with zeros.
 
 ::: {.callout-note title="Reading this chart honestly"}
 - The fill is burned **area**, not fire counts. The detection system changed
@@ -321,7 +321,6 @@ p_base +
     data = tagged_2026_full,
     fill = NA, color = "#D64A05", linewidth = 0.25, alpha = 0.8
   ) +
-  labs(caption = "EFFIS rapid perimeters (≈ ≥30–50 ha), countries tagged by max overlap.") +
   theme_burns(base_size = 11, map = TRUE)
 ```
 
@@ -362,14 +361,13 @@ p_base +
     size = 3.1, label.size = 0, hjust = 0, vjust = 1,
     fill = alpha("white", 0.85), colour = "grey20"
   ) +
-  labs(caption = "EFFIS rapid perimeters (≈ ≥30–50 ha). Areas from geometry in EPSG:3035.") +
   theme_burns(base_size = 11, map = TRUE) +
   theme(strip.text = element_text(face = "bold"))
 ```
 
-Two things jump out. First, the familiar geography is already in place: the
-Iberian Peninsula and the Mediterranean arc dominate the map. Second, here is
-that winter surge again, now on the map: about
+The map makes two things obvious: first, the familiar geography is already
+in place: the Iberian Peninsula and the Mediterranean arc dominate the map.
+Second, here is that winter surge again, now on the map: about
 `r comma(round(full_ha - season_ha, -3))` of the
 `r comma(round(full_ha, -3))` hectares were mapped between January and May,
 visible in the left panel above. Keep that in mind when reading the summer
@@ -377,16 +375,15 @@ chart at the top: it deliberately leaves those months out.
 
 ## Explore the fires yourself
 
-Every 2026 fire, on a map you can pan and zoom. Click an outline for its
-date, size, country, and the vegetation that dominated the ground it burned.
-I simplified the shapes slightly (about 100 m of tolerance) to keep the page
-fast; the tiniest border slivers, about 1% of the total area, drop out in the
-process. For survey-grade outlines, use the official EFFIS viewer.
-
 ```{r}
-#| label: leaflet
+#| label: leaflet-data
 
-leaf_sf <- cached(sprintf("leaflet_2026_asof%s", format(as_of, "%Y%m%d")), {
+# Computed here, ahead of the prose below, so the sliver-drop share it quotes
+# is a real inline value rather than an asserted "about 1%". The cache key
+# does not need the snapshot identifier: it already includes asof<date>, and
+# tagged_2026_full (its only input) is itself built from a snapshot-aware key
+# upstream in get_tagged_window().
+leaflet_result <- cached(sprintf("leaflet_2026_asof%s", format(as_of, "%Y%m%d")), {
   x <- tagged_2026_full |>
     mutate(across(all_of(lc_cols), to_num))
 
@@ -395,6 +392,8 @@ leaf_sf <- cached(sprintf("leaflet_2026_asof%s", format(as_of, "%Y%m%d")), {
   dom <- lc_labels[lc_cols[max.col(lc_mat, ties.method = "first")]]
   dom[rowSums(lc_mat) <= 0] <- "n/a"
   x$dominant_lc <- unname(dom)
+
+  total_ha_before <- sum(x$area_ha, na.rm = TRUE)
 
   x <- x |>
     st_simplify(dTolerance = 100) |>       # ~100 m in EPSG:3035 (metric)
@@ -409,11 +408,35 @@ leaf_sf <- cached(sprintf("leaflet_2026_asof%s", format(as_of, "%Y%m%d")), {
   if (nrow(x_gc) > 0L) {
     x_poly <- rbind(x_poly, suppressWarnings(st_collection_extract(x_gc, "POLYGON")))
   }
-  x_poly |>
+  x_poly <- x_poly |>
     filter(!st_is_empty(geometry)) |>
     st_cast("MULTIPOLYGON") |>
     st_transform(4326)
-}, version = 2)
+
+  # Sliver-drop share quoted in prose: the area held by rows that degenerated
+  # into pure lines/points (or emptied out entirely) after simplification,
+  # and so never make it into x_poly, as a share of the pre-simplification
+  # total -- NOT the much smaller boundary shrinkage of polygons that ARE
+  # retained.
+  retained_ha <- sum(x_poly$area_ha, na.rm = TRUE)
+  sliver_pct <- 100 * (total_ha_before - retained_ha) / total_ha_before
+
+  list(sf = x_poly, sliver_pct = sliver_pct)
+}, version = 3)
+
+leaf_sf <- leaflet_result$sf
+sliver_pct_lab <- sprintf("%.1f%%", leaflet_result$sliver_pct)
+```
+
+Every 2026 fire, on a map you can pan and zoom. Click an outline for its
+date, size, country, and the vegetation that dominated the ground it burned.
+I simplified the shapes slightly (about 100 m of tolerance) to keep the page
+fast; the tiniest border slivers, about `r sliver_pct_lab` of the total area,
+drop out in the process. For survey-grade outlines, use the official EFFIS
+viewer.
+
+```{r}
+#| label: leaflet
 
 pal_period <- c("#3E8EC4", "#D64A05")  # winter-spring blue vs summer orange-red
 leaflet(leaf_sf) |>
@@ -556,11 +579,7 @@ p_pct <- ggplot(top10, aes(x = pct_land, y = name_long)) +
   theme(axis.text.y = element_blank())
 
 p_raw + p_pct +
-  plot_layout(widths = c(3, 2)) +
-  plot_annotation(
-    caption = "EFFIS rapid perimeters (≈ ≥30–50 ha), Jan 1 – season to date. Point/line colors from national flags.",
-    theme = theme(plot.caption = element_text(colour = "grey30"))
-  )
+  plot_layout(widths = c(3, 2))
 ```
 
 `r top10$name_long[which.max(top10$burned_ha)]` leads the raw ranking with
@@ -607,10 +626,12 @@ ggplot() +
     "First-time burn (not in 2017–2025 scars)" = "#D64A05",
     "Re-burn of a 2017–2025 scar" = "#1F78B4"
   ), name = NULL) +
-  labs(caption = "EFFIS rapid perimeters; historical footprint = union of all 2017–2025 perimeters, Europe-clipped.") +
   theme_burns(base_size = 11, map = TRUE) +
   theme(legend.position = "bottom")
 ```
+
+On the map, France's scars lean toward re-burns of familiar ground, while
+Spain and Portugal's fires more often break new ground.
 
 ```{r}
 #| label: aude-numbers
@@ -642,7 +663,7 @@ products, and I simplified the shapes to keep the computation tractable.
 
 I still check on Aude every season now, since it's where this whole project
 started:
-`r if (aude_n > 0) sprintf("the Aude département in France does show 2026 activity: %d mapped fire%s totalling about %s hectares so far.", aude_n, if (aude_n > 1) "s" else "", comma(round(aude_ha, -2))) else "the Aude département in France shows no mapped 2026 fire in this snapshot so far (an honest zero, not a data gap)."`
+`r if (aude_n > 0) sprintf("the Aude département in France does show 2026 activity: %d mapped fire%s totalling about %s hectares so far.", aude_n, if (aude_n > 1) "s" else "", comma(round(aude_ha, -2))) else "the Aude département in France shows no mapped 2026 fire in this snapshot so far (a real zero, not a data gap)."`
 France as a whole stands at about `r comma(round(fr_ha, -2))` hectares across
 `r comma(fr_n)` mapped fires this year.
 

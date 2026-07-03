@@ -11,6 +11,14 @@
 #' "tag_2025_6_8"); changing helper logic requires clearing DATA/cache/rds.
 #' Alternatively, bump `version` to bust stale caches centrally without
 #' touching every call site.
+#' MANDATORY KEY INPUT -- snapshot identifier: any object derived (directly or
+#' transitively) from DATA/snapshots/<date>/ba_<year>.geojson files MUST
+#' encode the snapshot identifier (basename(snapshot_dir), e.g. "20260703")
+#' in its key. A same-named snapshot directory can be re-fetched with revised
+#' EFFIS perimeters (rapid mapping is corrected over time), so a key that
+#' omits the snapshot would silently keep serving a stale .rds after a
+#' re-fetch. This is in addition to, not instead of, encoding the other
+#' inputs (year, window, tolerance, etc.).
 #' @param key character string identifying the cached object (used as file name)
 #' @param expr expression to evaluate if no cache file is present (lazily evaluated)
 #' @param cache_dir directory to store cached .rds files in, created if missing

@@ -1,0 +1,66 @@
+---
+title: "Summer 2025 Wildfires in Europe: Where Did It Burn?"
+subtitle: "EFFIS burn-scar perimeters (June–August) with monthly facets and country totals"
+author: "Pierre Beaucoral"
+date: today
+format:
+  html:
+    theme:
+     light: minty
+     dark: darkly
+    respect-user-color-scheme: true
+    self-contained: true
+    highlight-style: tango
+    number-sections: true
+    code-fold: true          # per-chunk folding
+    code-summary: "Show code"
+    code-tools: true         # adds “Show All Code / Hide All Code” toolbar    lightbox: true        # click images to zoom
+    toc: true             # optional: show floating table of contents
+    toc-depth: 3
+    smooth-scroll: true
+    link-external-newwindow: true
+    df-print: paged
+execute:
+  echo: true
+  warning: false
+  message: false
+filters:
+  - quarto
+---
+
+::: callout-note
+**Method at a glance.** We map **burnt-area perimeters** from EFFIS (Sentinel-2/Landsat based). Small fires below \~**30–50 ha** are under-represented, so totals are **conservative**.
+:::
+
+## Hero map — all summer 2025
+
+*Translucent red polygons show the burn scars detected June–August 2025.*
+
+## Monthly facets
+
+*Seasonality emerges: early-summer Iberian/Med focus vs. late-summer Balkans/SE Europe (illustrative).*
+
+## Top-10 countries by burned area (Summer 2025)
+
+```{r}
+1+1
+```
+
+*Totals by country (sum of scar perimeters’ areas).*
+
+## Δ vs earlier summers
+
+We compare **2025** against **2017** (a milder baseline) and show a multi-year view for the **Top-10** 2025 countries.
+
+*The markers connect each country’s 2017 and 2025 totals; the grouped bars show 2017/2022/2023/2025.*
+
+## (Optional) Severity overlay
+
+*If a severity raster is available, it adds a sense of impact beyond area alone.*
+
+## Data & caveats
+
+-   **Data:** EFFIS Burnt Areas perimeters (Copernicus/JRC).\
+-   **Coverage:** Rapid mapping focuses on larger fires; **small fires (\<\~30–50 ha)** may be missed.\
+-   **Projection:** All maps in **EPSG:3035 (ETRS89 / LAEA Europe)**.\
+-   **Reproducibility:** Re-run the script on publication day to capture the latest perimeters.
