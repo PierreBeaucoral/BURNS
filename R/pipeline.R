@@ -2,11 +2,14 @@
 # pipeline.R
 # Season-assembly layer for the 2026 follow-up (and the index.qmd tracker):
 # per-year tagged perimeters, daily cumulative series, the envelope chart's
-# historical band, the unioned historical footprint for re-burn analysis, and
-# national land-area lookups. Every expensive step is wrapped in cached() so
-# a second render reads .rds files instead of re-running geometry ops.
+# historical band, the unioned historical footprint for re-burn analysis,
+# national land-area lookups, the year x ISO-week burned-area aggregate
+# (calendar heatmap), the Natura 2000 protected-burn series, and the gallery-
+# of-scars small-multiples data prep. Every expensive step is wrapped in
+# cached() so a second render reads .rds files instead of re-running geometry
+# ops.
 # Required packages (namespaced calls only, no library() here):
-#   sf, dplyr, tibble, purrr, lubridate, stats
+#   sf, dplyr, tidyr, tibble, purrr, lubridate, scales, stats
 # Depends on: R/helpers.R, R/geo.R, R/cache.R
 # ==============================================================================
 
@@ -287,4 +290,280 @@ country_land_area <- function(eu) {
     sf::st_drop_geometry() |>
     dplyr::mutate(land_area_ha = areas_ha) |>
     dplyr::distinct(name_long, iso_a2, land_area_ha)
+}
+
+# ==============================================================================
+# Calendar heatmap (year x ISO-week burned area, 2016-2026)
+# ==============================================================================
+
+#' Lightweight Europe-clip for one year: st_intersection against the SINGLE
+#' unioned Europe geometry only, no per-country attribution. Deliberately
+#' NOT get_tagged_full_year()/tag_countries() -- benchmarked at 3,767 s for
+#' one historical year (2019) because tag_countries() does a pairwise overlap
+#' join against ~40 detailed country polygons; looping that over 2016-2025
+#' would take 10+ hours. This lighter clip was benchmarked at 17.6-61.3 s per
+#' year (worst case: 2025, 23,188 raw features), i.e. tractable for an
+#' 11-year loop. Used only by build_weekly_area(); country-level figures
+#' (gallery, Natura map) still use the fully tagged objects elsewhere.
+#' @param year integer year (matches ba_<year>.geojson file name)
+#' @param snapshot_dir path to the dated snapshot directory
+#' @param eu list(poly, union) from get_eu()
+#' @return sf object, Europe-clipped, CRS 3035, with area_ha recomputed post-clip
+clip_europe_year <- function(year, snapshot_dir, eu) {
+  geojson_path <- file.path(snapshot_dir, sprintf("ba_%d.geojson", year))
+  ba_all <- read_effis(geojson_path)
+  ba_full <- filter_window(ba_all, as.Date(sprintf("%d-01-01", year)), as.Date(sprintf("%d-12-31", year)))
+  candidates <- sf::st_filter(ba_full, eu$union)          # spatial-index pre-screen
+  clipped <- suppressWarnings(sf::st_intersection(candidates, eu$union))
+  # Boundary touches can leave empty or degenerate (line/point-only) results;
+  # drop them before area/centroid, else st_coordinates(st_centroid(...))
+  # silently returns fewer rows than nrow(clipped) (empty points carry no
+  # coordinate row), desynchronising downstream vectors by length.
+  clipped <- clipped[!sf::st_is_empty(sf::st_geometry(clipped)), ]
+  clipped |> dplyr::mutate(area_ha = as.numeric(sf::st_area(sf::st_geometry(clipped))) / 10000)
+}
+
+#' Collapse a tagged/clipped sf of perimeters to year x ISO-week totals:
+#' burned area, fire count, forest-vs-agricultural area split (for a future
+#' "two fire regimes" chart), and the area-weighted mean centroid latitude
+#' (for a future "is fire creeping north" chart) -- both cheap to compute
+#' alongside the area sum, so this pass is a down payment on later ideas.
+#' ISO week 53 (rare; only a few years define it) is folded into week 52 to
+#' keep every year on the same 1-52 grid.
+#' @param tg sf with ba_date, area_ha, and lc_cols columns (raw or already numeric)
+#' @param year integer year label to attach (kept separate from isoyear() to
+#'   avoid a Dec-31-belongs-to-next-ISO-year edge case splitting one year's
+#'   data across two grid rows)
+#' @param lc_cols character vector of land-cover share column names
+#' @return tibble(year, iso_week, area_ha, n_fires, forest_ha, agri_ha, mean_lat)
+summarise_weekly <- function(tg, year, lc_cols) {
+  geom <- sf::st_geometry(tg)
+  lat <- sf::st_coordinates(suppressWarnings(sf::st_centroid(sf::st_transform(geom, 4326))))[, "Y"]
+
+  tg |>
+    sf::st_drop_geometry() |>
+    dplyr::mutate(
+      dplyr::across(dplyr::all_of(lc_cols), to_num),
+      lat = lat,
+      forest_ha = (broadlea + conifer + mixed + scleroph + transit) / 100 * area_ha,
+      agri_ha   = agriareas / 100 * area_ha,
+      iso_week  = pmin(lubridate::isoweek(ba_date), 52L),
+      year      = year
+    ) |>
+    dplyr::group_by(year, iso_week) |>
+    # NOTE order matters: dplyr::summarise() evaluates arguments sequentially
+    # within one call, so mean_lat (which needs the PER-ROW area_ha as
+    # weights) must be computed BEFORE area_ha is overwritten by its own
+    # sum() below -- reversing the order silently reduces area_ha to a
+    # length-1 scalar for the weighted.mean() call and throws a length
+    # mismatch (caught in smoke-testing, not a hypothetical).
+    dplyr::summarise(
+      mean_lat  = stats::weighted.mean(lat, w = pmax(area_ha, 1e-6), na.rm = TRUE),
+      n_fires   = dplyr::n(),
+      forest_ha = sum(forest_ha, na.rm = TRUE),
+      agri_ha   = sum(agri_ha, na.rm = TRUE),
+      area_ha   = sum(area_ha, na.rm = TRUE),
+      .groups = "drop"
+    )
+}
+
+#' Build the year x ISO-week burned-area aggregate behind the calendar
+#' heatmap, cached as one small tibble (~11 years x 52 weeks). Historical
+#' years go through the light Europe-clip (clip_europe_year(), fast); the
+#' current year reuses an already-loaded, already country-tagged object
+#' (avoids a second read of the same file).
+#' @param years historical (complete) years requiring a fresh clip pass, e.g. 2016:2025
+#' @param current_year integer, in-progress current year, e.g. 2026L
+#' @param current_tagged sf, already-tagged perimeters for current_year (e.g.
+#'   tagged_2026_full), reused instead of re-reading/re-clipping
+#' @param lc_cols character vector of land-cover share column names
+#' @return tibble, see summarise_weekly()
+build_weekly_area <- function(years, current_year, current_tagged, snapshot_dir, eu, lc_cols, version = 1) {
+  key <- sprintf("weekly_area_%d_%d", min(years), current_year)
+
+  cached(key, {
+    hist_part <- purrr::map_dfr(years, function(y) {
+      t0 <- Sys.time()
+      message(sprintf("weekly aggregate: clipping %d ...", y))
+      cl <- clip_europe_year(y, snapshot_dir, eu)
+      out <- summarise_weekly(cl, y, lc_cols)
+      message(sprintf(
+        "weekly aggregate: %d done (%s ha, %.0fs)",
+        y, scales::comma(round(sum(out$area_ha))), as.numeric(difftime(Sys.time(), t0, units = "secs"))
+      ))
+      out
+    })
+
+    message(sprintf("weekly aggregate: summarising %d (already loaded) ...", current_year))
+    cur_part <- summarise_weekly(current_tagged, current_year, lc_cols)
+
+    dplyr::bind_rows(hist_part, cur_part)
+  }, version = version)
+}
+
+#' Expand the sparse year x ISO-week aggregate into the full display grid for
+#' the calendar heatmap: every (year, week) cell 1-52, real zeros for elapsed
+#' weeks with no burned area, and explicit NA (left blank, not zero) for
+#' weeks of the current in-progress year that have not happened yet.
+#' @param weekly tibble from build_weekly_area()
+#' @param hist_years complete past years (e.g. 2016:2025)
+#' @param year_current in-progress year (e.g. 2026L)
+#' @param as_of_date Date; weeks after isoweek(as_of_date) in year_current are NA
+#' @return tibble(year, iso_week, area_ha) with area_ha NA for not-yet-happened weeks
+prepare_calendar_grid <- function(weekly, hist_years, year_current, as_of_date) {
+  all_years <- c(hist_years, year_current)
+  cutoff_week <- min(lubridate::isoweek(as_of_date), 52L)
+
+  tidyr::expand_grid(year = all_years, iso_week = 1:52) |>
+    dplyr::left_join(
+      weekly |> dplyr::select(year, iso_week, area_ha), by = c("year", "iso_week")
+    ) |>
+    dplyr::mutate(
+      is_future = year == year_current & iso_week > cutoff_week,
+      area_ha = dplyr::if_else(is_future, NA_real_, dplyr::coalesce(area_ha, 0))
+    ) |>
+    dplyr::select(-is_future)
+}
+
+# ==============================================================================
+# Fire inside Natura 2000
+# ==============================================================================
+
+#' Summarise one tagged/windowed sf of perimeters into total and
+#' Natura-2000-protected burned area, using EFFIS's own PERCNA2K field
+#' (share of each perimeter's area inside a Natura 2000 site).
+#' @param tg sf with area_ha, percna2k columns (percna2k may be raw character)
+#' @param year integer year label
+#' @return tibble(year, total_ha, prot_ha, share)
+natura_summary <- function(tg, year) {
+  df <- tg |> sf::st_drop_geometry() |> dplyr::mutate(percna2k = to_num(percna2k))
+  total_ha <- sum(df$area_ha, na.rm = TRUE)
+  prot_ha  <- sum(df$area_ha * df$percna2k / 100, na.rm = TRUE)
+  tibble::tibble(
+    year = year, total_ha = total_ha, prot_ha = prot_ha,
+    share = if (total_ha > 0) prot_ha / total_ha else NA_real_
+  )
+}
+
+#' Year-by-year share of burned area falling inside Natura 2000 protected
+#' sites, same Jun 1-cutoff window every year so seasons compare like for
+#' like. Historical years reuse the SAME cached Jun1-cutoff tagged windows
+#' already built for the land-cover chunk (identical cache key via
+#' get_tagged_window()) -- no extra geometry read. The current year reuses an
+#' already-loaded tagged object, filtered in-memory to the same window.
+#' @param hist_years complete past years, e.g. 2017:2025
+#' @param year_current current year, e.g. 2026L
+#' @param current_tagged sf, already-tagged full-year perimeters for year_current
+#' @param snapshot_dir, eu as elsewhere
+#' @param cutoff_md "MM-DD" string marking the same-window end date every year
+#' @return tibble(year, total_ha, prot_ha, share)
+build_natura_trend <- function(hist_years, year_current, current_tagged, snapshot_dir, eu, cutoff_md, version = 1) {
+  key <- sprintf("natura_trend_%d_%d_%s", min(hist_years), year_current, gsub("-", "", cutoff_md))
+
+  cached(key, {
+    hist_part <- purrr::map_dfr(hist_years, function(y) {
+      tg <- get_tagged_window(
+        y, snapshot_dir, eu,
+        start_date = as.Date(sprintf("%d-06-01", y)),
+        end_date   = as.Date(paste0(y, "-", cutoff_md))
+      )
+      natura_summary(tg, y)
+    })
+
+    cur_start <- as.Date(sprintf("%d-06-01", year_current))
+    cur_end   <- as.Date(paste0(year_current, "-", cutoff_md))
+    cur_tg <- current_tagged |> dplyr::filter(ba_date >= cur_start, ba_date <= cur_end)
+    cur_part <- natura_summary(cur_tg, year_current)
+
+    dplyr::bind_rows(hist_part, cur_part)
+  }, version = version)
+}
+
+# ==============================================================================
+# Gallery of scars
+# ==============================================================================
+
+#' Top-n current-year fires by Europe-clipped area, geometry recentred on
+#' each fire's own centroid (CRS deliberately dropped: the result is a
+#' shared LOCAL coordinate frame in metres-from-own-centroid, not a
+#' geographic layer) so a single shared coord window (half_side) renders
+#' every panel at an identical metres-per-pixel scale in facet_wrap(). A
+#' same-area reference circle (Paris intra-muros, drawn as a circle -- no
+#' external boundary fetch) is appended as its own panel at the same scale.
+#' @param tagged_full sf, Europe-clipped current-year perimeters (area_ha,
+#'   ba_date, commune, name_long, lc_cols)
+#' @param n top-n fires by area_ha
+#' @param lc_cols, lc_labels dominant land-cover machinery (matches leaflet chunk)
+#' @param paris_ha reference circle area in hectares (10,500 ha = ~105 km2,
+#'   Paris intra-muros)
+#' @return list(panels = sf with panel_label/dominant_lc/area_ha/geometry
+#'   (local, CRS-less), half_side = shared window half-width (m), top1_share
+#'   = share of tagged_full's total area held by its largest 1% of fires)
+build_gallery_scars <- function(tagged_full, n = 10L, lc_cols, lc_labels, paris_ha = 10500) {
+  top_n <- tagged_full |>
+    dplyr::mutate(dplyr::across(dplyr::all_of(lc_cols), to_num)) |>
+    dplyr::slice_max(area_ha, n = n, with_ties = FALSE) |>
+    dplyr::arrange(dplyr::desc(area_ha))
+
+  lc_mat <- as.matrix(sf::st_drop_geometry(top_n)[, lc_cols])
+  lc_mat[is.na(lc_mat)] <- 0
+  dom <- lc_labels[lc_cols[max.col(lc_mat, ties.method = "first")]]
+  dom[rowSums(lc_mat) <= 0] <- "n/a"
+  top_n$dominant_lc <- unname(dom)
+
+  rank_lab <- sprintf("%02d", seq_len(nrow(top_n)))
+  # English month abbreviations regardless of system locale (format(..., "%b")
+  # follows the OS locale and silently prints French/etc. abbreviations; the
+  # rest of the page avoids this via month.abb[], see posts/2026.qmd as_of_lab)
+  date_lab <- sprintf("%02d %s", lubridate::day(top_n$ba_date), month.abb[lubridate::month(top_n$ba_date)])
+  # Truncate long commune names so the two-line strip label fits a facet
+  # column at ncol = 4; country given as its ISO2 code (compact "name"
+  # fallback, since per-panel flag icons inside facet_wrap add real
+  # complexity for little payoff at this size).
+  commune_raw <- dplyr::coalesce(top_n$commune, "Unnamed")
+  commune_lab <- ifelse(
+    nchar(commune_raw) > 20, paste0(substr(commune_raw, 1, 19), "…"), commune_raw
+  )
+  top_n$panel_label <- sprintf(
+    "%s. %s (%s)\n%s · %s ha",
+    rank_lab, commune_lab, top_n$iso_a2, date_lab, scales::comma(round(top_n$area_ha))
+  )
+  # Untruncated, single-line "Commune, Country" for prose (panel_label is
+  # two-line and truncated for the strip width; prose sentences want the
+  # full name instead).
+  top_n$place_lab <- sprintf("%s, %s", commune_raw, top_n$name_long)
+
+  bbox_side <- vapply(seq_len(nrow(top_n)), function(i) {
+    bb <- sf::st_bbox(sf::st_geometry(top_n)[i])
+    max(bb["xmax"] - bb["xmin"], bb["ymax"] - bb["ymin"])
+  }, numeric(1))
+  half_side <- max(bbox_side) * 1.1 / 2
+
+  geom <- sf::st_geometry(top_n)
+  cent <- sf::st_coordinates(sf::st_centroid(geom))
+  for (i in seq_along(geom)) geom[i] <- geom[i] - cent[i, ]
+  sf::st_geometry(top_n) <- geom
+  sf::st_crs(top_n) <- NA
+
+  paris_radius_m <- sqrt(paris_ha * 10000 / pi)
+  paris_row <- sf::st_sf(
+    panel_label = sprintf("Paris, for scale\n(circle, equal-area, %s ha)", scales::comma(paris_ha)),
+    dominant_lc = "Reference (Paris outline)",
+    area_ha = paris_ha,
+    place_lab = NA_character_,
+    geometry = sf::st_buffer(sf::st_sfc(sf::st_point(c(0, 0))), paris_radius_m)
+  )
+
+  panels <- top_n |>
+    dplyr::select(panel_label, dominant_lc, area_ha, place_lab) |>
+    rbind(paris_row)
+  panels$panel_label <- factor(panels$panel_label, levels = panels$panel_label)
+
+  # Size-concentration stat quoted in prose: computed on the SAME population
+  # (tagged_full = current-year, Europe-clipped) as the gallery itself.
+  areas <- tagged_full$area_ha
+  thr <- stats::quantile(areas, 0.99, na.rm = TRUE)
+  top1_share <- sum(areas[areas >= thr], na.rm = TRUE) / sum(areas, na.rm = TRUE)
+
+  list(panels = panels, half_side = half_side, top1_share = top1_share)
 }

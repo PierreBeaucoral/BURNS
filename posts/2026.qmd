@@ -72,6 +72,11 @@ HIST_YEARS   <- 2017:2025   # archive effectively starts 2016; 2016 kept out of
 SEASON_START_MONTH <- 6L    # season window: 1 Jun -
 SEASON_END_MONTH   <- 9L    # 30 Sep
 
+# Calendar heatmap DOES include 2016 (the archive's first, partial-quality
+# year) -- unlike HIST_YEARS above, since a full-decade grid is the point of
+# that chart; 2016's row is captioned as lower-confidence rather than dropped.
+CALENDAR_YEARS <- 2016:2025
+
 snap <- latest_snapshot()
 stopifnot(!is.na(snap))
 eu <- get_eu()
@@ -165,6 +170,42 @@ cap_landcover <- sprintf(
   ),
   as_of_lab, basename(snap)
 )
+cap_calendar <- sprintf(
+  paste(
+    "Weekly Europe-clipped burned area by year, %d–%d, in ISO calendar weeks.",
+    "Fill on a square-root scale: many weeks burn exactly zero hectares, which a",
+    "log scale cannot display, and sqrt still compresses the July–August peaks",
+    "enough to keep smaller months visible. Grey cells are 2026 weeks that have",
+    "not happened yet; the dashed line marks the last mapped week so far (%s).",
+    "2016 is the archive's first year and its coverage is less complete than",
+    "later years. This chart uses burned area, not fire counts, so the",
+    "2023-to-2024 detection-system change (which makes counts incomparable",
+    "across years) mostly washes out. Source: EFFIS rapid perimeters,",
+    "snapshots covering %d–%d; areas from geometry in EPSG:3035, Europe-clipped."
+  ),
+  min(CALENDAR_YEARS), YEAR_CURRENT, as_of_lab, min(CALENDAR_YEARS), YEAR_CURRENT
+)
+cap_natura_trend <- sprintf(
+  paste(
+    "Share of Europe-clipped burned area falling inside a Natura 2000 protected",
+    "site, 1 June – %s each year, computed as area-weighted PERCNA2K (EFFIS's own",
+    "field for the share of each perimeter's own area inside Natura 2000). The",
+    "window is identical every year, so the series is not distorted by how much",
+    "of the season had elapsed. 2026 is highlighted. Source: EFFIS rapid",
+    "perimeters, snapshots covering 2017–%d."
+  ),
+  as_of_lab, YEAR_CURRENT
+)
+cap_natura_map <- sprintf(
+  paste(
+    "2026 perimeters (1 January – %s) colored by PERCNA2K, the share of each",
+    "fire's own perimeter that falls inside a Natura 2000 protected site. Grey:",
+    "0%% (no protected-area overlap). Bright yellow: perimeters that burned",
+    "almost entirely inside protected land. Source: EFFIS rapid perimeters,",
+    "snapshot %s."
+  ),
+  as_of_lab, basename(snap)
+)
 ```
 
 Two numbers set the scene, and they cover different time windows. Since
@@ -200,6 +241,61 @@ inside the band: several recent years, like 2017, 2022 and 2025, were further
 along at this date. My honest reading is *elevated, not exceptional, so far*.
 Most of a European fire season happens in July and August. This line has most
 of its story still ahead of it, and I will not call a season in week four.
+
+## Does Europe only burn in summer?
+
+Not entirely, and 2026 makes the exception hard to miss. The chart below
+stacks eleven years, calendar week by calendar week, so a season's full
+rhythm is visible at once.
+
+```{r}
+#| label: calendar-heatmap
+#| fig-width: 9.5
+#| fig-height: 5.5
+#| fig-cap: !expr cap_calendar
+
+weekly_area <- build_weekly_area(
+  years = CALENDAR_YEARS, current_year = YEAR_CURRENT,
+  current_tagged = tagged_2026_full, snapshot_dir = snap, eu = eu, lc_cols = lc_cols
+)
+
+cal_grid <- prepare_calendar_grid(weekly_area, CALENDAR_YEARS, YEAR_CURRENT, as_of)
+cal_cutoff_week <- min(lubridate::isoweek(as_of), 52L)
+
+plot_calendar_heatmap(cal_grid, YEAR_CURRENT, cal_cutoff_week)
+```
+
+```{r}
+#| label: calendar-numbers
+
+peak_2026 <- cal_grid |>
+  dplyr::filter(year == YEAR_CURRENT, !is.na(area_ha)) |>
+  dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
+peak_2026_date <- iso_week_start(YEAR_CURRENT, peak_2026$iso_week)
+peak_2026_lab  <- paste(day(peak_2026_date), month.abb[month(peak_2026_date)])
+```
+
+Two patterns jump out. First, most years share the same silhouette: a dark
+block across July and August and comparatively little else. Second, 2026's
+own row breaks that pattern before summer even starts, with a bright stretch
+of late-winter and early-spring weeks that most other years do not show at
+this intensity. That is the unusually busy January-to-May window from the
+introduction, now visible on its own. The single busiest week of 2026 so far
+was the week of `r peak_2026_lab`, when about
+`r lab_si_ha(peak_2026$area_ha)` burned in that ISO week alone. The grey band
+on the right marks weeks that have not happened yet: the row simply stops,
+honestly, rather than being padded with zeros.
+
+::: {.callout-note title="Reading this chart honestly"}
+- The fill is burned **area**, not fire counts. The detection system changed
+  in 2023 to 2024, which would make later years look artificially busier if
+  counted by number of fires; area is far less affected.
+- **2016** is the archive's first year. Its coverage, especially outside
+  summer, is less complete than later years, so read that row with extra
+  caution.
+- The color scale is a square root, not a log. Many weeks genuinely burn
+  zero hectares, and a log scale cannot show a true zero.
+:::
 
 # Where did it burn?
 
@@ -332,6 +428,58 @@ leaflet(leaf_sf) |>
     title = "2026 perimeters", opacity = 0.7
   )
 ```
+
+# What does a giant fire actually look like?
+
+Numbers like "seven thousand hectares" are hard to picture. Below are the
+ten largest 2026 fires so far, each drawn at the exact same scale, so size
+differences are visible rather than just stated. A single grey circle, equal
+in area to the city of Paris, sits alongside them for reference.
+
+```{r}
+#| label: gallery-data
+
+# Built here (not in the shared setup chunk) because it only depends on
+# tagged_2026_full, which the setup chunk already produced; the caption
+# below needs gallery$half_side, so it is composed in this data chunk and
+# only REFERENCED (via !expr) by the figure chunk that follows -- fig-cap
+# options resolve before a chunk's own body runs, so a caption cannot depend
+# on a value the same chunk is about to compute.
+gallery <- build_gallery_scars(
+  tagged_2026_full, n = 10L, lc_cols = lc_cols, lc_labels = lc_labels
+)
+
+cap_gallery <- sprintf(
+  paste(
+    "The ten largest 2026 fires by Europe-clipped area, each drawn at the same",
+    "metric scale (a single shared window, about %.0f km across) so their true",
+    "relative size is directly comparable; fill shows each fire's dominant",
+    "land-cover class. The grey circle is not a fire: it is a circle of equal",
+    "area to Paris intra-muros (about 105 km2, 10,500 ha), drawn for scale",
+    "rather than traced from an official city boundary. Communes and country",
+    "codes from EFFIS attributes; rapid perimeters are provisional and",
+    "subject to revision. Source: EFFIS rapid perimeters, snapshot %s."
+  ),
+  gallery$half_side * 2 / 1000, basename(snap)
+)
+```
+
+```{r}
+#| label: gallery-scars
+#| fig-width: 10.5
+#| fig-height: 8.5
+#| fig-cap: !expr cap_gallery
+
+plot_gallery_scars(gallery)
+```
+
+Fires like these are not typical of the season. Across all
+`r comma(full_n)` mapped 2026 perimeters, the largest 1% alone hold about
+`r sprintf("%.0f%%", gallery$top1_share * 100)` of the season's total burned
+area. Most fires are small. A handful of monsters like the ones above do
+most of the damage, and the biggest one on the sheet, in
+`r gallery$panels$place_lab[[1]]`, is already bigger than the Paris-sized
+circle next to it.
 
 # Which countries are hit hardest so far?
 
@@ -575,6 +723,58 @@ describe the landscape the fires happened to cross.
   vegetation, dunes, rocky ground).
 - **Other LC**: residual or unknown classes.
 :::
+
+# How much of this is happening in protected nature?
+
+::: {.callout-note title="What is Natura 2000?"}
+Natura 2000 is the European Union's network of protected natural sites,
+covering habitats and species the EU has agreed are worth safeguarding. It
+is not a fire ban. Many Natura 2000 landscapes, especially Mediterranean
+scrub and some forest types, are fire-adapted ecosystems where occasional
+burning is part of their natural cycle. A fire inside a protected site is
+not automatically a disaster, but tracking how much burning happens there is
+still useful context.
+:::
+
+EFFIS tags every perimeter with the share of its own area that falls inside
+a Natura 2000 site. The chart below turns that into a season-by-season
+series, using the same 1 June cutoff every year so the comparison is fair.
+
+```{r}
+#| label: natura-trend
+#| fig-width: 8
+#| fig-height: 4.2
+#| fig-cap: !expr cap_natura_trend
+
+natura_trend <- build_natura_trend(
+  hist_years = HIST_YEARS, year_current = YEAR_CURRENT,
+  current_tagged = tagged_2026_full, snapshot_dir = snap, eu = eu, cutoff_md = cutoff_md
+)
+
+plot_natura_trend(natura_trend, YEAR_CURRENT)
+```
+
+```{r}
+#| label: natura-numbers
+
+natura_2026       <- natura_trend |> dplyr::filter(year == YEAR_CURRENT)
+natura_hist_median <- stats::median(natura_trend$share[natura_trend$year != YEAR_CURRENT], na.rm = TRUE)
+```
+
+Weighting by area, about `r sprintf("%.0f%%", natura_2026$share * 100)` of
+2026's burned area in this window sits inside a Natura 2000 site, against a
+`r sprintf("%.0f%%", natura_hist_median * 100)` median for 2017-2025 by the
+same date. The map below shows exactly which 2026 scars carry a high
+protected-area share; grey outlines mark fires with none.
+
+```{r}
+#| label: natura-map
+#| fig-width: 8
+#| fig-height: 6.5
+#| fig-cap: !expr cap_natura_map
+
+plot_natura_map(tagged_2026_full, eu)
+```
 
 ::: {.callout-note title="A final word of caution"}
 Everything on this page is a rapid satellite estimate, not an official

@@ -34,3 +34,23 @@ parse_date_any <- function(x) {
 
 #' Shared label formatter: SI-scaled hectares (e.g. "12k ha") for ggplot axes
 lab_si_ha <- scales::label_number(scale_cut = scales::cut_si("ha"))
+
+#' Monday (start) of a given ISO year/week, for turning an ISO week number
+#' back into a human date for prose (e.g. "the week of 29 June").
+#' NOTE: deliberately NOT `as.Date(sprintf("%d-W%02d-1", ...), format =
+#' "%Y-W%V-%u")` -- verified broken on this platform: strptime's %V is not
+#' reliably supported for PARSING (only formatting), and silently returned
+#' Sys.Date() regardless of the requested week during smoke-testing (caught
+#' because it happened to look right for the current week and wrong for
+#' every other week). ISO 8601 guarantees 4 January always falls in week 1,
+#' so walking back to that week's Monday is a portable, dependency-free way
+#' to anchor the calculation.
+#' @param year integer ISO year
+#' @param week integer ISO week (1-53)
+#' @return Date, the Monday that begins that ISO week
+iso_week_start <- function(year, week) {
+  jan4 <- as.Date(sprintf("%d-01-04", year))
+  wday_iso <- as.integer(format(jan4, "%u"))   # 1 = Monday ... 7 = Sunday
+  week1_monday <- jan4 - (wday_iso - 1)
+  week1_monday + (week - 1) * 7
+}
