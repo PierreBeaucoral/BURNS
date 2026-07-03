@@ -7,7 +7,8 @@ execute:
   freeze: false
 ---
 
-This tracker follows Europe's wildfire season as it unfolds. Satellites spot
+How bad is this fire season, and how would you actually know? This tracker
+follows Europe's wildfire season as it unfolds. Satellites spot
 large fires (roughly 30 hectares and up), and Europe's **EFFIS** service,
 part of the Copernicus programme, draws the outline of each burned area it
 can map. During the fire season (**June to September**) this site refreshes
@@ -67,7 +68,7 @@ cap_envelope <- sprintf(
 
 ## Season at a glance, as of `r as_of_lab` `r m$year_current`
 
-| Burned area since 1 June | Mapped perimeters since 1 June | vs 2017–2025 median to date |
+| How much has burned since 1 June | In how many separate fires | Compared with a typical recent season |
 |:---:|:---:|:---:|
 | **`r lab_si_ha(m$current_cum_ha)`** | **`r comma(m$current_n_fires)`** | **`r sprintf("%.0f%%", m$pct_vs_median)`** |
 

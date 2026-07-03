@@ -7,10 +7,12 @@ execute:
   freeze: false
 ---
 
-The 2026 fire season is about four weeks old. This page is a snapshot of it:
-what has burned so far, where, and how that compares with recent seasons at
-the same point in the calendar. It is a **state of the season**, not a
-verdict.
+Every summer now brings the same headlines out of the Mediterranean, and the
+same question underneath them: is this year actually worse, or does it just
+feel that way? The 2026 fire season is about four weeks old, and this page is
+my attempt at an answer: what has burned so far, where, and how that compares
+with recent seasons at the same point in the calendar. It is a **state of the
+season**, not a verdict.
 
 A word on the data first. Satellites spot large fires, and Europe's EFFIS
 service (part of the Copernicus programme) draws the outline of each burned
@@ -216,10 +218,12 @@ Two numbers set the scene, and they cover different time windows. Since
 **`r sprintf("%.0f%%", pct_vs_med)`** of what a typical recent season had
 burned by this date (`r comma(round(median_ha, -3))` hectares). But 2026 did
 not start in June. Counting from **1 January**, the total is already about
-**`r comma(round(full_ha, -3))` hectares**. An unusually busy late winter and
-spring did most of that. The chart below sticks to the summer window, so that
-seasons are compared like for like; the maps further down show everything
-mapped in 2026 so far.
+**`r comma(round(full_ha, -3))` hectares**, and an unusually busy late winter
+and spring drove most of that gap, weeks before most people start watching
+for fire season at all. That timing is this year's strangest thread so far,
+and the calendar chart further down traces exactly when it happened. The
+chart right below sticks to the summer window, so that seasons are compared
+like for like; the maps after that show everything mapped in 2026 so far.
 
 # Is this season bad so far?
 
@@ -299,6 +303,9 @@ honestly, rather than being padded with zeros.
 
 # Where did it burn?
 
+With the timing question answered, the next one is geographic: where, across
+the continent, did all of this actually happen?
+
 ```{r}
 #| label: hero
 #| fig-width: 9
@@ -361,13 +368,12 @@ p_base +
 ```
 
 Two things jump out. First, the familiar geography is already in place: the
-Iberian Peninsula and the Mediterranean arc dominate the map. Second, and
-this surprised me, most of 2026's burned area so far predates the summer.
-About `r comma(round(full_ha - season_ha, -3))` of the
+Iberian Peninsula and the Mediterranean arc dominate the map. Second, here is
+that winter surge again, now on the map: about
+`r comma(round(full_ha - season_ha, -3))` of the
 `r comma(round(full_ha, -3))` hectares were mapped between January and May,
-an unusually active late winter and spring, visible in the left panel above.
-Keep that in mind when reading the summer chart at the top: it deliberately
-leaves those months out.
+visible in the left panel above. Keep that in mind when reading the summer
+chart at the top: it deliberately leaves those months out.
 
 ## Explore the fires yourself
 
@@ -431,10 +437,11 @@ leaflet(leaf_sf) |>
 
 # What does a giant fire actually look like?
 
-Numbers like "seven thousand hectares" are hard to picture. Below are the
-ten largest 2026 fires so far, each drawn at the exact same scale, so size
-differences are visible rather than just stated. A single grey circle, equal
-in area to the city of Paris, sits alongside them for reference.
+Scrolling through that map, numbers like "seven thousand hectares" are hard
+to picture on their own. Below are the ten largest 2026 fires so far, each
+drawn at the exact same scale, so size differences are visible rather than
+just stated. A single grey circle, equal in area to the city of Paris, sits
+alongside them for reference.
 
 ```{r}
 #| label: gallery-data
@@ -482,6 +489,9 @@ most of the damage, and the biggest one on the sheet, in
 circle next to it.
 
 # Which countries are hit hardest so far?
+
+Individual fires are dramatic on their own; country totals show where the
+season is landing hardest overall.
 
 ```{r}
 #| label: countries
@@ -619,19 +629,29 @@ fr_ha <- sum(fr_rows$area_ha, na.rm = TRUE)
 The headline: about **`r sprintf("%.0f%%", 100 * reburn$reburn_share)`** of
 2026's burned area (roughly `r comma(round(reburn$reburn_ha, -3))` of
 `r comma(round(reburn$total_ha, -3))` hectares) sits on land that already
-burned at least once since 2017. Fire coming back to recent scars is common
-in Mediterranean landscapes: vegetation regrows fast, and what regrows burns
-easily. Still, treat the exact figure as an estimate. Both layers are rapid
-mapping products, and I simplified the shapes to keep the computation
-tractable. On the 2025 post's origin story:
+burned at least once since 2017. That is not automatically bad news.
+Mediterranean shrubland and many pine forests are fire-adapted: they regrow
+quickly after a burn, and that fresh growth is often exactly the kind of
+fine, dry fuel that carries a fire well again a few years later. Repeated
+burning on a short cycle has long been part of how these landscapes work.
+What the share does not tell us is whether any single re-burn was more or
+less severe than the fire before it, or whether the gap between fires is
+shrinking: it is a description of overlap, not a verdict on land condition.
+Treat the exact figure as an estimate too. Both layers are rapid mapping
+products, and I simplified the shapes to keep the computation tractable.
+
+I still check on Aude every season now, since it's where this whole project
+started:
 `r if (aude_n > 0) sprintf("the Aude département in France does show 2026 activity: %d mapped fire%s totalling about %s hectares so far.", aude_n, if (aude_n > 1) "s" else "", comma(round(aude_ha, -2))) else "the Aude département in France shows no mapped 2026 fire in this snapshot so far (an honest zero, not a data gap)."`
 France as a whole stands at about `r comma(round(fr_ha, -2))` hectares across
 `r comma(fr_n)` mapped fires this year.
 
 # What is actually burning?
 
-Is this season eating into different vegetation than usual? To compare
-fairly, I use identical calendar windows: what burned between **1 June and
+Beyond where fire keeps coming back, there is a second question worth
+asking: is this season eating into different vegetation than usual? To
+compare fairly, I use identical calendar windows: what burned between
+**1 June and
 `r as_of_lab`** this year, against what burned in the very same window in the
 nine previous seasons pooled together.
 
@@ -726,6 +746,9 @@ describe the landscape the fires happened to cross.
 
 # How much of this is happening in protected nature?
 
+One more lens on what burned: how much of it sits inside land specifically
+protected for nature?
+
 ::: {.callout-note title="What is Natura 2000?"}
 Natura 2000 is the European Union's network of protected natural sites,
 covering habitats and species the EU has agreed are worth safeguarding. It
@@ -775,6 +798,12 @@ protected-area share; grey outlines mark fires with none.
 
 plot_natura_map(tagged_2026_full, eu)
 ```
+
+That is the season through `r as_of_lab`. The real test is still ahead: most
+of a typical European fire season happens in July and August, and this page
+updates weekly as new EFFIS outlines come in. Watch, above all, whether the
+elevated pace from this first month holds, eases, or turns into something
+worse.
 
 ::: {.callout-note title="A final word of caution"}
 Everything on this page is a rapid satellite estimate, not an official
