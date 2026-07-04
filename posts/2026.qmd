@@ -511,6 +511,114 @@ most of the damage, and the biggest one on the sheet, in
 `r gallery$panels$place_lab[[1]]`, is already bigger than the Paris-sized
 circle next to it.
 
+## See it for yourself: drop each fire onto Paris
+
+A grey circle is one way to picture "the size of Paris," but the real city
+is not a circle. What if you could see a fire's true, ragged outline sitting
+directly on the streets you might actually know? The map below does exactly
+that: it takes the true shape of each of the `r nrow(gallery$meta)` fires
+above and slides it onto the real municipal boundary of Paris, one fire at a
+time, so the comparison is against the actual city rather than a stand-in
+shape.
+
+```{r}
+#| label: paris-comparison-data
+
+# Reuses gallery$panels/gallery$meta (already computed for the static
+# figure above) rather than re-selecting or re-simplifying the top-10 from
+# scratch; build_paris_comparison() only adds a translation ("+ Paris
+# centroid") on top of geometry build_gallery_scars() already produced.
+# Cache key mirrors the leaflet-data chunk's convention above: asof<date>
+# is enough because gallery (its only input besides the static Paris
+# boundary asset) is itself built from snapshot-aware tagged_2026_full.
+paris_cmp <- cached(
+  sprintf("paris_comparison_asof%s", format(as_of, "%Y%m%d")),
+  build_paris_comparison(gallery),
+  version = 1
+)
+
+paris_fires <- paris_cmp$fires_wgs84 |>
+  mutate(
+    fill_col = unname(pal_lc[dominant_lc]),
+    times_paris = area_ha / paris_cmp$paris_ha,
+    group_label = sprintf(
+      "%s. %s (%s), %s ha", rank, commune, iso_a2, comma(round(area_ha))
+    ),
+    popup_html = sprintf(
+      paste(
+        "<b>%02d. %s</b><br/>Country: %s<br/>Date: %s<br/>",
+        "Mapped area: %s ha<br/><b>%.1f×</b> the area of Paris (%s ha)"
+      ),
+      as.integer(rank), commune, name_long, format(ba_date, "%Y-%m-%d"),
+      comma(round(area_ha)), times_paris, comma(round(paris_cmp$paris_ha))
+    )
+  )
+```
+
+::: {.callout-note title="Read this map honestly"}
+- These fires never happened anywhere near Paris. Their real locations are
+  on the maps earlier in this post; here, each outline is **moved** so its
+  size can be compared directly to a familiar shape.
+- Paris's own outline is its real municipal boundary (INSEE code 75056,
+  not a circle this time), about
+  `r comma(round(paris_cmp$paris_ha))` hectares by this geometry (close to,
+  but not identical to, the round 10,500 ha used as a reference constant
+  elsewhere on this page). Boundary data:
+  [france-geojson](https://github.com/gregoiredavid/france-geojson)
+  (Etalab, Licence Ouverte).
+- Pick a fire from the list on the right; only one outline is shown at a
+  time, so sizes are never visually stacked on top of each other.
+:::
+
+```{r}
+#| label: paris-comparison-leaflet
+
+# One dark, permanent outline (never toggles) for Paris itself, plus one
+# leaflet GROUP per fire; addLayersControl(baseGroups = ...) makes group
+# selection mutually exclusive (radio-style), and hideGroup() on every
+# label but the first leaves fire 01 selected by default.
+combined_geom <- c(sf::st_geometry(paris_cmp$paris_wgs84), sf::st_geometry(paris_fires))
+bbox_all <- sf::st_bbox(combined_geom)
+
+paris_map <- leaflet(width = "100%", height = 520) |>
+  addProviderTiles("CartoDB.Positron") |>
+  addPolygons(
+    data = paris_cmp$paris_wgs84,
+    color = "#1A1A1A", weight = 2.4, fill = FALSE, opacity = 0.9
+  ) |>
+  fitBounds(
+    lng1 = unname(bbox_all["xmin"]), lat1 = unname(bbox_all["ymin"]),
+    lng2 = unname(bbox_all["xmax"]), lat2 = unname(bbox_all["ymax"])
+  )
+
+paris_map <- purrr::reduce(seq_len(nrow(paris_fires)), function(map_acc, i) {
+  row_i <- paris_fires[i, ]
+  addPolygons(
+    map_acc,
+    data = row_i, group = row_i$group_label,
+    color = "grey20", weight = 1,
+    fillColor = row_i$fill_col, fillOpacity = 0.55,
+    popup = row_i$popup_html
+  )
+}, .init = paris_map)
+
+paris_map <- paris_map |>
+  addLayersControl(
+    baseGroups = paris_fires$group_label,
+    options = layersControlOptions(collapsed = FALSE),
+    position = "topright"
+  )
+
+# Default selection: fire 01 (already the largest, per gallery's arrange()).
+paris_map <- purrr::reduce(
+  paris_fires$group_label[-1],
+  function(map_acc, g) hideGroup(map_acc, g),
+  .init = paris_map
+)
+
+paris_map
+```
+
 # Which countries are hit hardest so far?
 
 Individual fires are dramatic on their own; country totals show where the

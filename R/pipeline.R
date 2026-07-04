@@ -529,7 +529,11 @@ build_natura_trend <- function(hist_years, year_current, current_tagged, snapsho
 #'   Paris intra-muros)
 #' @return list(panels = sf with panel_label/dominant_lc/area_ha/geometry
 #'   (local, CRS-less), half_side = shared window half-width (m), top1_share
-#'   = share of tagged_full's total area held by its largest 1% of fires)
+#'   = share of tagged_full's total area held by its largest 1% of fires,
+#'   meta = tibble (no geometry) with rank/commune/name_long/iso_a2/ba_date/
+#'   area_ha/dominant_lc for the n fires, same row order as the fire rows of
+#'   panels -- consumed by build_paris_comparison() so the interactive
+#'   comparator reuses this same top-n selection instead of recomputing it)
 build_gallery_scars <- function(tagged_full, n = 10L, lc_cols, lc_labels, paris_ha = 10500) {
   top_n <- tagged_full |>
     dplyr::mutate(dplyr::across(dplyr::all_of(lc_cols), to_num)) |>
@@ -564,6 +568,20 @@ build_gallery_scars <- function(tagged_full, n = 10L, lc_cols, lc_labels, paris_
   # full name instead).
   top_n$place_lab <- sprintf("%s, %s", commune_raw, top_n$name_long)
 
+  # Slim, geometry-free metadata table for the interactive Paris comparator
+  # (build_paris_comparison()): captured here, before select() below drops
+  # everything but panel_label/dominant_lc/area_ha/place_lab, so the rank,
+  # untruncated commune name, and fire date survive for the leaflet popups.
+  meta <- tibble::tibble(
+    rank        = rank_lab,
+    commune     = commune_raw,
+    name_long   = top_n$name_long,
+    iso_a2      = top_n$iso_a2,
+    ba_date     = top_n$ba_date,
+    area_ha     = top_n$area_ha,
+    dominant_lc = top_n$dominant_lc
+  )
+
   bbox_side <- vapply(seq_len(nrow(top_n)), function(i) {
     bb <- sf::st_bbox(sf::st_geometry(top_n)[i])
     max(bb["xmax"] - bb["xmin"], bb["ymax"] - bb["ymin"])
@@ -596,5 +614,77 @@ build_gallery_scars <- function(tagged_full, n = 10L, lc_cols, lc_labels, paris_
   thr <- stats::quantile(areas, 0.99, na.rm = TRUE)
   top1_share <- sum(areas[areas >= thr], na.rm = TRUE) / sum(areas, na.rm = TRUE)
 
-  list(panels = panels, half_side = half_side, top1_share = top1_share)
+  list(panels = panels, half_side = half_side, top1_share = top1_share, meta = meta)
+}
+
+# ==============================================================================
+# Paris comparator (interactive)
+# ==============================================================================
+
+#' Displace the gallery-of-scars fires onto Paris so their TRUE outlines can
+#' be compared to the real city shape one at a time on a leaflet map. Reuses
+#' gallery$panels, which build_gallery_scars() already recentred to
+#' fire_geom - fire_centroid (CRS dropped, metres, EPSG:3035-scaled): sliding
+#' that local frame onto Paris is then just "+ paris_centroid" -- no
+#' independent geometry recompute, per the strategy memo's translation rule
+#' (geometry - its centroid + Paris centroid). Paris's own boundary is read
+#' from the one-time-downloaded assets/paris_commune.geojson (INSEE 75056,
+#' france-geojson / Etalab); if that file is ever missing (e.g. a fresh
+#' checkout before the asset is restored), falls back to the same
+#' equal-area circle already used by the static gallery rather than
+#' blocking the render.
+#' @param gallery list returned by build_gallery_scars(): needs panels
+#'   (last row = the static gallery's own Paris reference circle, dropped
+#'   here) and meta (rank/commune/name_long/iso_a2/ba_date/area_ha/
+#'   dominant_lc, same row order as panels' fire rows)
+#' @param paris_boundary_path path to the downloaded Paris commune polygon
+#' @param simplify_m st_simplify tolerance in metres (EPSG:3035); kept small
+#'   (~50 m) since there are only 10 polygons and detail is the point
+#' @return list(paris_wgs84 = sf polygon (EPSG:4326, 1 row), fires_wgs84 =
+#'   sf of the n fires displaced onto Paris (EPSG:4326, rank/commune/
+#'   name_long/iso_a2/ba_date/area_ha/dominant_lc/geometry), paris_ha =
+#'   real area (ha) of the Paris polygon actually used, used_real_boundary
+#'   = logical, TRUE unless the fallback circle was used)
+build_paris_comparison <- function(gallery, paris_boundary_path = file.path("assets", "paris_commune.geojson"),
+                                    simplify_m = 50) {
+  stopifnot(is.list(gallery), all(c("panels", "meta") %in% names(gallery)))
+
+  used_real_boundary <- file.exists(paris_boundary_path)
+
+  if (used_real_boundary) {
+    paris_raw <- sf::st_read(paris_boundary_path, quiet = TRUE) |> sf::st_transform(3035)
+  } else {
+    # Fallback: same equal-area circle already used by the static gallery,
+    # centred arbitrarily (its own shape is what is compared, not its
+    # location) -- keeps the page working even without the asset.
+    paris_radius_m <- sqrt(10500 * 10000 / pi)
+    paris_raw <- sf::st_sf(
+      nom = "Paris (fallback circle -- boundary download unavailable)",
+      geometry = sf::st_buffer(sf::st_sfc(sf::st_point(c(3760000, 2889000)), crs = 3035), paris_radius_m)
+    )
+  }
+
+  paris_ha <- as.numeric(sf::st_area(paris_raw)) / 10000
+  paris_centroid <- sf::st_coordinates(sf::st_centroid(sf::st_geometry(paris_raw)))[1L, ]
+
+  # Fire rows only (last row of panels is the static gallery's own Paris
+  # reference circle, not one of the n fires).
+  fires <- gallery$panels[gallery$panels$dominant_lc != "Reference (Paris outline)", ]
+  stopifnot(nrow(fires) == nrow(gallery$meta))
+
+  fire_geom <- sf::st_geometry(fires)
+  sf::st_crs(fire_geom) <- 3035               # already fire_geom - fire_centroid, in metres
+  fire_geom_paris <- fire_geom + paris_centroid  # "+ Paris centroid" (translation arithmetic drops the CRS)
+  sf::st_crs(fire_geom_paris) <- 3035
+
+  fires_displaced <- gallery$meta
+  sf::st_geometry(fires_displaced) <- sf::st_simplify(fire_geom_paris, dTolerance = simplify_m)
+  fires_displaced <- sf::st_as_sf(fires_displaced)
+
+  list(
+    paris_wgs84 = sf::st_transform(paris_raw, 4326),
+    fires_wgs84 = sf::st_transform(fires_displaced, 4326),
+    paris_ha = paris_ha,
+    used_real_boundary = used_real_boundary
+  )
 }
