@@ -61,5 +61,4 @@ decisions, refer to authoritative national and European reporting systems.
 
 ## Author & code
 
-Built by **Pierre Beaucoral**. Code and pipeline: *link to repository
-placeholder, added once the repo is published*.
+Built by **Pierre Beaucoral**. Code and pipeline: Available [Here](https://github.com/PierreBeaucoral/BURNS). 
