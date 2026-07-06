@@ -7,6 +7,9 @@
 # --- OS ---
 .DS_Store
 
+# --- Internal working notes: plans, journal, ideas memos (not for the public repo) ---
+quality_reports/
+
 # --- Data: raw snapshots are large & re-fetchable; keep manifests only ---
 DATA/snapshots/*/
 !DATA/snapshots/*/MANIFEST.md
