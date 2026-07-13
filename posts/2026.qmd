@@ -1,15 +1,15 @@
 ---
 title: "Summer 2026 Wildfires in Europe: State of the Season"
-subtitle: "EFFIS rapid perimeters, as of 3 July 2026"
+subtitle: "EFFIS rapid perimeters, as of 12 July 2026"
 author: "Pierre Beaucoral"
-date: 2026-07-03
+date: 2026-07-13
 execute:
   freeze: false
 ---
 
 Every summer now brings the same headlines out of the Mediterranean, and the
 same question underneath them: is this year actually worse, or does it just
-feel that way? The 2026 fire season is about four weeks old, and this page is
+feel that way? The 2026 fire season is about six weeks old, and this page is
 my attempt at an answer: what has burned so far, where, and how that compares
 with recent seasons at the same point in the calendar. It is a **state of the
 season**, not a verdict.
@@ -239,12 +239,12 @@ plot_envelope(envelope)
 Read this like a race against the past. The grey band is the space between
 the calmest and the most severe of the last nine seasons, day by day. The
 dashed line is the middle of the pack. The orange line is 2026, and it stops
-where the data stops, on `r as_of_lab`. One month in, 2026 is
+where the data stops, on `r as_of_lab`. Six weeks in, 2026 is
 `r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)` but well
 inside the band: several recent years, like 2017, 2022 and 2025, were further
 along at this date. My honest reading is *elevated, not exceptional, so far*.
 Most of a European fire season happens in July and August. This line has most
-of its story still ahead of it, and I will not call a season in week four.
+of its story still ahead of it, and I will not call a season in week six.
 
 ## Does Europe only burn in summer?
 
