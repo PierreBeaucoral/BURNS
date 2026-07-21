@@ -1,15 +1,15 @@
 ---
 title: "Summer 2026 Wildfires in Europe: State of the Season"
-subtitle: "EFFIS rapid perimeters, as of 12 July 2026"
+subtitle: "EFFIS rapid perimeters, as of 20 July 2026"
 author: "Pierre Beaucoral"
-date: 2026-07-13
+date: 2026-07-21
 execute:
   freeze: false
 ---
 
 Every summer now brings the same headlines out of the Mediterranean, and the
 same question underneath them: is this year actually worse, or does it just
-feel that way? The 2026 fire season is about six weeks old, and this page is
+feel that way? The 2026 fire season is about seven weeks old, and this page is
 my attempt at an answer: what has burned so far, where, and how that compares
 with recent seasons at the same point in the calendar. It is a **state of the
 season**, not a verdict.
@@ -219,11 +219,12 @@ Two numbers set the scene, and they cover different time windows. Since
 burned by this date (`r if (is.na(median_ha)) "n/a" else comma(round(median_ha, -3))` hectares). But 2026 did
 not start in June. Counting from **1 January**, the total is already about
 **`r comma(round(full_ha, -3))` hectares**, and an unusually busy late winter
-and spring drove most of that gap, weeks before most people start watching
-for fire season at all. That timing is this year's strangest thread so far,
-and the calendar chart further down traces exactly when it happened. The
-chart right below sticks to the summer window, so that seasons are compared
-like for like; the maps after that show everything mapped in 2026 so far.
+and spring drove much of that gap, weeks before most people start watching
+for fire season at all. That early burst was this year's strangest thread for
+months; summer has since arrived in force and is catching up fast, and the
+calendar chart further down traces both. The chart right below sticks to the
+summer window, so that seasons are compared like for like; the maps after
+that show everything mapped in 2026 so far.
 
 # Is this season bad so far?
 
@@ -239,12 +240,13 @@ plot_envelope(envelope)
 Read this like a race against the past. The grey band is the space between
 the calmest and the most severe of the last nine seasons, day by day. The
 dashed line is the middle of the pack. The orange line is 2026, and it stops
-where the data stops, on `r as_of_lab`. Six weeks in, 2026 is
-`r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)` but well
-inside the band: several recent years, like 2017, 2022 and 2025, were further
-along at this date. My honest reading is *elevated, not exceptional, so far*.
-Most of a European fire season happens in July and August. This line has most
-of its story still ahead of it, and I will not call a season in week six.
+where the data stops, on `r as_of_lab`. Seven weeks in, 2026 is
+`r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)` and now
+in the upper part of the band: only two recent years, 2017 and 2022, were
+further along at this date. My honest reading is *clearly elevated, and rising,
+though not yet a record*. Most of a European fire season happens in July and
+August. This line has most of its story still ahead of it, and I will not call
+a season in week seven.
 
 ## Does Europe only burn in summer?
 
@@ -281,12 +283,13 @@ peak_2026_lab  <- paste(day(peak_2026_date), month.abb[month(peak_2026_date)])
 
 Two patterns jump out. First, most years share the same silhouette: a dark
 block across July and August and comparatively little else. Second, 2026's
-own row breaks that pattern before summer even starts, with a bright stretch
-of late-winter and early-spring weeks that most other years do not show at
-this intensity. That is the unusually busy January-to-May window from the
-introduction, now visible on its own. The single busiest week of 2026 so far
-was the week of `r peak_2026_lab`, when about
-`r lab_si_ha(peak_2026$area_ha)` burned in that single week alone. The grey band
+own row stands out twice over: a bright stretch of late-winter and
+early-spring weeks that most other years do not show at this intensity, and
+then the familiar summer block arriving on top of it. The winter stretch is
+the unusually busy January-to-May window from the introduction. The single
+busiest week of 2026 so far, though, is a summer one, the week of
+`r peak_2026_lab`, when about `r lab_si_ha(peak_2026$area_ha)` burned in that
+single week alone, now outpacing even that winter surge. The grey band
 on the right marks weeks that have not happened yet: the row simply stops
 there, rather than being padded with zeros.
 
@@ -686,8 +689,11 @@ p_pct <- ggplot(top10, aes(x = pct_land, y = name_long)) +
   theme_burns(base_size = 12) +
   theme(axis.text.y = element_blank())
 
-p_raw + p_pct +
-  plot_layout(widths = c(3, 2))
+# plot_spacer() inserts a gap column between the two panels so the left
+# panel's rightmost x-axis label (e.g. "150 kha") and its flags do not collide
+# with the right panel's leftmost label ("0.0%").
+p_raw + plot_spacer() + p_pct +
+  plot_layout(widths = c(3, 0.25, 2))
 ```
 
 `r top10$name_long[which.max(top10$burned_ha)]` leads the raw ranking with

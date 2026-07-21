@@ -30,6 +30,12 @@ load_europe_polygons <- function(scale = "large") {
 
   eu_poly <- rnaturalearth::ne_countries(scale = scale, returnclass = "sf") |>
     dplyr::filter(iso_a2_eh %in% eu_keep) |>
+    # Natural Earth sets iso_a2 = "-99" for France, Norway, Kosovo (a known
+    # dataset quirk), even though iso_a2_eh carries the correct code -- that is
+    # why the eu_keep filter above is on iso_a2_eh, not iso_a2. Repair iso_a2
+    # from iso_a2_eh so downstream country codes (e.g. the gallery panel labels)
+    # read "FR"/"NO"/"XK" instead of "-99".
+    dplyr::mutate(iso_a2 = dplyr::if_else(is.na(iso_a2) | iso_a2 == "-99", iso_a2_eh, iso_a2)) |>
     sf::st_intersection(europe_bbox) |>  # keep only mainland Europe
     sf::st_transform(3035)
 
