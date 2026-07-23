@@ -17,8 +17,10 @@ under *Seasons*).
 All fire outlines come from **EFFIS** (European Forest Fire Information
 System), part of the **Copernicus Emergency Management Service**. EFFIS draws
 the outline of each burned area it can detect from satellite imagery,
-automatically, and typically only for fires of roughly **30 to 50 hectares
-and above**.
+automatically. Historically this meant mainly fires of roughly **30 hectares
+and up**, but since the switch to Sentinel-2 based mapping EFFIS also detects
+much smaller fires, so most mapped perimeters in recent years are well under
+30 hectares. The very smallest fires are still missed.
 
 Key caveats, roughly in order of how much they should shape your reading:
 

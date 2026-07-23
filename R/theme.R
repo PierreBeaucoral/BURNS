@@ -1,24 +1,16 @@
 # ==============================================================================
 # theme.R
-# Shared land-cover color palette and ggplot theme used across the wildfire
-# figures. Exception to the no-library() convention: this file may use
-# ggplot2:: namespaced calls throughout (per project rule).
-# Required packages: ggplot2
+# Shared ggplot theme used across the wildfire figures. The land-cover palette
+# pal_lc and all brand colours now come from R/tokens.R (single source:
+# theme/burns-tokens.yml), so figures and the HTML chrome share one palette.
+# Exception to the no-library() convention: ggplot2:: namespaced calls
+# throughout (per project rule).
+# Required packages: ggplot2 (pal_lc/brand: see R/tokens.R -> yaml)
 # ==============================================================================
 
-#' Color-blind-safe, semantically meaningful palette for EFFIS land-cover
-#' composition classes (broad-leaved, conifer, mixed, sclerophyllous, etc.)
-pal_lc <- c(
-  "Broad-leaved forest"         = "#2E7D32",  # deep leaf green
-  "Coniferous forest"           = "#00512D",  # dark pine
-  "Mixed forest"                = "#4CAF50",  # mid forest green
-  "Sclerophyllous veg."         = "#E64A19",  # hot Mediterranean orange
-  "Transitional woodland-shrub" = "#8C6D31",  # olive/brown scrub
-  "Agricultural areas"          = "#DDAA33",  # golden fields
-  "Artificial surfaces"         = "#6E6E6E",  # urban grey
-  "Other natural LC"            = "#3E8EC4",  # light blue (natural/open)
-  "Other LC"                    = "#9B59B6"   # lavender (misc/unknown)
-)
+# Load the shared tokens (defines pal_lc, burns_brand, burns_tokens). Guarded so
+# re-sourcing theme.R after tokens.R is already loaded is a no-op.
+if (!exists("burns_tokens")) source(file.path("R", "tokens.R"))
 
 #' Shared minimal theme matching the recurring theme() settings across the
 #' wildfire figures (blank grid on maps, grey caption/subtitle text, etc.)

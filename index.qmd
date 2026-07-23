@@ -8,8 +8,8 @@ execute:
 ---
 
 How bad is this fire season, and how would you actually know? This tracker
-follows Europe's wildfire season as it unfolds. Satellites spot
-large fires (roughly 30 hectares and up), and Europe's **EFFIS** service,
+follows Europe's wildfire season as it unfolds. Satellites spot wildfires
+(large ones reliably, and increasingly small ones too), and Europe's **EFFIS** service,
 part of the Copernicus programme, draws the outline of each burned area it
 can map. During the fire season (**June to September**) this site refreshes
 **weekly**: a pipeline fetches the newest outlines, stores a dated copy under

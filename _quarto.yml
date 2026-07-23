@@ -4,10 +4,11 @@ project:
   # All qmd chunks execute with the project root as the working directory, so
   # posts/*.qmd can source("R/...") and read DATA/ with root-relative paths.
   execute-dir: project
-  # NOTE: wildfires-europe-2025-local.qmd stays frozen at repo root for now
-  # (will be moved into posts/2025.qmd in a later phase). It is excluded from
-  # the website render list here because it depends on DATA/effis_layer/,
-  # which is not populated in this scaffold phase.
+  # Regenerate the SCSS colour mirror from the shared token YAML before every
+  # render, so R figures and HTML chrome always agree. Pure local, no network.
+  pre-render:
+    - theme/build-tokens.R
+  # NOTE: wildfires-europe-2025-local.qmd stays frozen at repo root for now.
   render:
     - index.qmd
     - about.qmd
@@ -15,6 +16,13 @@ project:
 
 website:
   title: "BURNS: Europe Wildfire Season Tracker"
+  favicon: assets/favicon.png
+  open-graph:
+    image: assets/og-image.png
+    description: "Tracking Europe's wildfire season from EFFIS rapid perimeters, refreshed weekly during fire season."
+  twitter-card:
+    image: assets/og-image.png
+    card-style: summary_large_image
   page-footer:
     left: "Pierre Beaucoral"
     right: "Built with Quarto"
@@ -24,8 +32,6 @@ website:
         href: index.qmd
       - text: "Seasons"
         menu:
-          # "2025" will be repointed to posts/2025.qmd once the frozen 2025
-          # post is moved into the site (later phase).
           - text: "2026 (current)"
             href: posts/2026.qmd
           - text: "2025 (archive, coming)"
@@ -35,9 +41,12 @@ website:
 
 format:
   html:
+    # burns.scss / burns-dark.scss layer the BURNS identity on top of the
+    # minty/darkly bootswatch bases (surcouche); both import the shared
+    # token mirror theme/_burns-tokens.scss.
     theme:
-      light: minty
-      dark: darkly
+      light: [minty, theme/burns.scss]
+      dark: [darkly, theme/burns-dark.scss]
     respect-user-color-scheme: true
     highlight-style: tango
     code-fold: true

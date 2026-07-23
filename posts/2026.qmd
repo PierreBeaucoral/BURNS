@@ -24,8 +24,11 @@ analysis](../wildfires-europe-2025-local.html) this project grew out of; that
 post remains the reference for the details.
 
 ::: {.callout-note title="Three things to know about these fire outlines"}
-- **Only fires of roughly 30 to 50 hectares and up get mapped.** Smaller
-  fires are mostly invisible here, so totals sit below official statistics.
+- **Most mapped fires are small, not big.** EFFIS once caught mainly fires of
+  roughly 30 hectares and up, but sharper Sentinel-2 imagery now maps far
+  smaller ones too, so most outlines on this page are in fact well under 30
+  hectares. The very smallest fires are still missed, so totals stay below
+  official statistics.
 - **The outlines are rapid estimates.** They are revised as better satellite
   imagery arrives. Every number on this page will move a little with each
   weekly update, and that is by design.
@@ -129,8 +132,9 @@ cap_envelope <- sprintf(
 cap_hero <- sprintf(
   paste(
     "Burn-scar perimeters mapped by EFFIS in 2026 to date (1 January – %s),",
-    "Europe-clipped. Perimeter outlines drawn on national borders; rapid mapping",
-    "covers fires of roughly 30–50 ha and above. Source: EFFIS rapid perimeters,",
+    "Europe-clipped. Perimeter outlines drawn on national borders; rapid Sentinel-2",
+    "mapping now captures fires down to a few hectares, with the smallest still",
+    "under-represented. Source: EFFIS rapid perimeters,",
     "snapshot %s; geometry in EPSG:3035."
   ),
   as_of_lab, basename(snap)
@@ -460,6 +464,60 @@ leaflet(leaf_sf) |>
     title = "2026 perimeters", opacity = 0.7
   )
 ```
+
+# How big is a fire, really?
+
+Here is the surprise hiding inside every map above: most of these fires are
+small. The chart below splits the 2026 fires two ways on the same size axis.
+That axis is logarithmic, so each step to the right multiplies the size
+tenfold rather than adding a fixed amount, which is the only way to show fires
+of two hectares and fires of thirty thousand on one line.
+
+```{r}
+#| label: fire-sizes-data
+
+size_df <- tagged_2026_full |>
+  st_drop_geometry() |>
+  filter(is.finite(area_ha), area_ha > 0)
+
+share_fires_small <- mean(size_df$area_ha < 30)
+share_area_small  <- sum(size_df$area_ha[size_df$area_ha < 30]) / sum(size_df$area_ha)
+median_fire_ha    <- median(size_df$area_ha)
+
+cap_fire_sizes <- sprintf(
+  paste(
+    "Every 2026 fire (1 January – %s), split by size on a shared logarithmic",
+    "axis. Top: how many fires fall in each size band. Bottom: how many hectares",
+    "those same fires burned. The dashed line marks 30 hectares, the rough floor",
+    "of the older MODIS-era mapping. Source: EFFIS rapid perimeters, snapshot %s;",
+    "areas from Europe-clipped geometry in EPSG:3035."
+  ),
+  as_of_lab, basename(snap)
+)
+```
+
+```{r}
+#| label: fire-sizes
+#| fig-width: 9
+#| fig-height: 6
+#| fig-cap: !expr cap_fire_sizes
+
+plot_fire_sizes(tagged_2026_full)
+```
+
+The two panels lean opposite ways. The top one counts fires, and its weight
+sits on the left: the large majority are well under 30 hectares, the size
+EFFIS could barely see a few years ago. The bottom panel counts hectares
+instead, and it tips to the right, where a handful of big fires hold nearly
+all the burned area. Both things are true at once. By number, small fires
+dominate; by area, a few giants do. About
+**`r sprintf("%.0f%%", 100 * share_fires_small)`** of 2026's mapped fires are
+under 30 hectares, yet they account for only about
+**`r sprintf("%.0f%%", 100 * share_area_small)`** of the burned area, and the
+typical fire is just `r round(median_fire_ha)` hectares. That gap is exactly
+why this page measures burned area instead of counting fires: one large fire
+says more about the season than a thousand tiny ones, and it is those giants
+that the next section puts under the microscope.
 
 # What does a giant fire actually look like?
 

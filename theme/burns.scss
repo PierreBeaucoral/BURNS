@@ -1,0 +1,35 @@
+/*-- scss:defaults --*/
+@import "burns-tokens";
+@import "burns-fonts";
+
+$font-family-sans-serif: #{$burns-font-sans}, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !default;
+$font-family-monospace: #{$burns-font-mono}, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !default;
+$headings-font-weight: 700 !default;
+$line-height-base: 1.65 !default;
+$font-size-base: 1.0625rem !default;
+
+$body-bg: $burns-light-bg !default;
+$body-color: $burns-light-ink !default;
+$primary: $burns-forest !default;
+$link-color: $burns-forest !default;
+$link-hover-color: $burns-forest-deep !default;
+$border-color: $burns-light-border !default;
+$card-bg: $burns-light-surface !default;
+$navbar-bg: $burns-light-surface !default;
+$navbar-fg: $burns-light-ink !default;
+$code-color: $burns-forest !default;
+$code-bg: mix($burns-light-surface, $burns-light-bg, 40%) !default;
+
+/*-- scss:rules --*/
+:root {
+  --burns-accent: #{$burns-forest};
+  --burns-accent-strong: #{$burns-forest-deep};
+  --burns-link: #{$burns-forest};
+  --burns-ink: #{$burns-light-ink};
+  --burns-muted: #{$burns-light-muted};
+  --burns-surface: #{$burns-light-surface};
+  --burns-bg: #{$burns-light-bg};
+  --burns-border: #{$burns-light-border};
+  --burns-note-bg: #{$burns-light-surface};
+}
+@import "burns-rules";
