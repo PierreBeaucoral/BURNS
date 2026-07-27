@@ -121,15 +121,23 @@ build_daily_cum <- function(tagged_sf, start_date, end_date) {
 #'   reproducible than Sys.Date(), which can drift from the data snapshot)
 #' @return list(hist_daily, band, current, current_full_window, ref_dates, meta)
 build_envelope <- function(hist_years, year_current, snapshot_dir, eu,
-                            start_month = 6L, end_month = 9L, as_of_date = NULL, version = 1) {
+                            start_month = 6L, end_month = 9L, as_of_date = NULL,
+                            country = NULL, version = 1) {
   # Snapshot-aware: the envelope is built from get_tagged_summer() calls over
   # both historical AND current years, all read from snapshot_dir's
   # ba_<year>.geojson files, which can be revised on a re-fetch (see cache.R
   # contract comment) -- omitting the snapshot here would silently serve a
   # stale envelope after a new weekly snapshot lands.
+  # `country` (name_long, e.g. "France"): when non-NULL, every year's tagged
+  # perimeters are filtered to that country before the daily cumulative is
+  # built, giving a country-level envelope against that country's own 2017-2025
+  # range. NULL keeps the Europe-wide behaviour AND the exact same cache key as
+  # before (backward compatible: existing Europe .rds stay valid).
+  ctry_tag <- if (is.null(country)) "" else paste0("_", gsub("[^A-Za-z0-9]", "", country))
   key <- sprintf(
-    "envelope_%d_%d_%d_%d_%d_snap%s",
-    min(hist_years), max(hist_years), year_current, start_month, end_month, basename(snapshot_dir)
+    "envelope_%d_%d_%d_%d_%d_snap%s%s",
+    min(hist_years), max(hist_years), year_current, start_month, end_month,
+    basename(snapshot_dir), ctry_tag
   )
 
   cached(key, {
@@ -138,6 +146,7 @@ build_envelope <- function(hist_years, year_current, snapshot_dir, eu,
       start_date <- as.Date(sprintf("%d-%02d-01", y, start_month))
       end_date   <- as.Date(sprintf("%d-%02d-%02d", y, end_month, last_day))
       tg <- get_tagged_summer(y, snapshot_dir, eu, start_month, end_month)
+      if (!is.null(country)) tg <- tg[!is.na(tg$name_long) & tg$name_long == country, , drop = FALSE]
       build_daily_cum(tg, start_date, end_date) |> dplyr::mutate(year = y)
     })
 
@@ -146,6 +155,7 @@ build_envelope <- function(hist_years, year_current, snapshot_dir, eu,
     cur_end_full <- as.Date(sprintf("%d-%02d-%02d", year_current, end_month, last_day_cur))
 
     tg_cur <- get_tagged_summer(year_current, snapshot_dir, eu, start_month, end_month)
+    if (!is.null(country)) tg_cur <- tg_cur[!is.na(tg_cur$name_long) & tg_cur$name_long == country, , drop = FALSE]
     as_of <- if (is.null(as_of_date)) max(tg_cur$ba_date, na.rm = TRUE) else as_of_date
 
     cur_daily_full <- build_daily_cum(tg_cur, cur_start, cur_end_full) |>

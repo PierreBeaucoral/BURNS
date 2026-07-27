@@ -29,7 +29,10 @@ plot_envelope <- function(envelope, col_current = burns_brand$ember) {
   )
   end_point <- current[nrow(current), ]
 
-  band_anchor <- band[band$ref_date == as.Date(sprintf("%d-08-20", meta$year_current)), ]
+  # "range" label sits in mid-September, deliberately to the RIGHT of where the
+  # current-year line stops (its last mapped date), so it never collides with
+  # the "2026: as of" end-point annotation even late in the season.
+  band_anchor <- band[band$ref_date == as.Date(sprintf("%d-09-10", meta$year_current)), ]
   med_anchor  <- band[nrow(band), ]
 
   ggplot2::ggplot() +

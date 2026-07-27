@@ -1,15 +1,15 @@
 ---
 title: "Summer 2026 Wildfires in Europe: State of the Season"
-subtitle: "EFFIS rapid perimeters, as of 20 July 2026"
+subtitle: "EFFIS rapid perimeters, as of 26 July 2026"
 author: "Pierre Beaucoral"
-date: 2026-07-21
+date: 2026-07-27
 execute:
   freeze: false
 ---
 
 Every summer now brings the same headlines out of the Mediterranean, and the
 same question underneath them: is this year actually worse, or does it just
-feel that way? The 2026 fire season is about seven weeks old, and this page is
+feel that way? The 2026 fire season is about eight weeks old, and this page is
 my attempt at an answer: what has burned so far, where, and how that compares
 with recent seasons at the same point in the calendar. It is a **state of the
 season**, not a verdict.
@@ -225,8 +225,9 @@ not start in June. Counting from **1 January**, the total is already about
 **`r comma(round(full_ha, -3))` hectares**, and an unusually busy late winter
 and spring drove much of that gap, weeks before most people start watching
 for fire season at all. That early burst was this year's strangest thread for
-months; summer has since arrived in force and is catching up fast, and the
-calendar chart further down traces both. The chart right below sticks to the
+months; summer has since arrived in force and has now overtaken it, with the
+single worst week of the season landing in late July, and the calendar chart
+further down traces both. The chart right below sticks to the
 summer window, so that seasons are compared like for like; the maps after
 that show everything mapped in 2026 so far.
 
@@ -244,13 +245,13 @@ plot_envelope(envelope)
 Read this like a race against the past. The grey band is the space between
 the calmest and the most severe of the last nine seasons, day by day. The
 dashed line is the middle of the pack. The orange line is 2026, and it stops
-where the data stops, on `r as_of_lab`. Seven weeks in, 2026 is
+where the data stops, on `r as_of_lab`. Eight weeks in, 2026 is
 `r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)` and now
-in the upper part of the band: only two recent years, 2017 and 2022, were
-further along at this date. My honest reading is *clearly elevated, and rising,
-though not yet a record*. Most of a European fire season happens in July and
+near the top of the band: of the last nine seasons, only 2022 was further along
+at this date. My honest reading has hardened to *the second-worst start in a
+decade, behind only 2022*. Most of a European fire season happens in July and
 August. This line has most of its story still ahead of it, and I will not call
-a season in week seven.
+a season in week eight.
 
 ## Does Europe only burn in summer?
 
@@ -802,8 +803,8 @@ ggplot() +
   theme(legend.position = "bottom")
 ```
 
-On the map, France's scars lean toward re-burns of familiar ground, while
-Spain and Portugal's fires more often break new ground.
+On the map, Spain's fires overwhelmingly break new ground, while France and
+Portugal fall more often on ground that has already burned since 2017.
 
 ```{r}
 #| label: aude-numbers
@@ -991,6 +992,99 @@ protected-area share; grey outlines mark fires with none.
 
 plot_natura_map(tagged_2026_full, eu)
 ```
+
+# France and Spain, each against its own past
+
+Two countries are carrying most of 2026, and it is worth seeing each on its own
+terms, against its own recent history rather than Europe's. The two charts below
+repeat the race-against-the-past idea from the top of the page, once for France
+and once for Spain: the grey band is that country's own 2017 to 2025 range, and
+the orange line is 2026 to date.
+
+```{r}
+#| label: france-spain-numbers
+
+fs_df <- tagged_2026_full |> st_drop_geometry()
+
+# Gironde (the departement around Bordeaux)
+gir     <- fs_df |> dplyr::filter(!is.na(province), province == "Gironde")
+gir_big <- gir |> dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
+
+# Provinces ringing Madrid (Sierra de Gredos / Guadarrama). "vila$" matches
+# "Avila" without depending on the accent byte encoding of the province field.
+madrid_ring <- fs_df |> dplyr::filter(
+  !is.na(province), grepl("vila$|Guadalajara|^Madrid$|Segovia", province)
+)
+madrid_ring_ha <- sum(madrid_ring$area_ha, na.rm = TRUE)
+navaluenga <- fs_df |> dplyr::filter(grepl("Navaluenga", dplyr::coalesce(commune, ""))) |>
+  dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
+sanmartin <- fs_df |> dplyr::filter(grepl("Valdeiglesias", dplyr::coalesce(commune, ""))) |>
+  dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
+
+# English date labels, locale-proof (see as_of_lab in the setup chunk)
+date_lab <- function(d) paste(lubridate::day(d), month.name[lubridate::month(d)])
+
+cap_env_fr <- sprintf(paste(
+  "Cumulative burned area in France since 1 June: 2026 to date against the",
+  "2017-2025 range. The shaded band spans the minimum and maximum cumulative",
+  "trajectory of the nine previous seasons on each day of the season; the dashed",
+  "line is their median. The 2026 line stops at its last mapped perimeter (%s)."
+), as_of_lab)
+cap_env_es <- sprintf(paste(
+  "Cumulative burned area in Spain since 1 June: 2026 to date against the",
+  "2017-2025 range. The shaded band spans the minimum and maximum cumulative",
+  "trajectory of the nine previous seasons on each day of the season; the dashed",
+  "line is their median. The 2026 line stops at its last mapped perimeter (%s)."
+), as_of_lab)
+```
+
+```{r}
+#| label: envelope-france
+#| fig-width: 9.5
+#| fig-height: 5
+#| fig-cap: !expr cap_env_fr
+
+env_fr <- build_envelope(
+  HIST_YEARS, YEAR_CURRENT, snap, eu,
+  SEASON_START_MONTH, SEASON_END_MONTH, as_of_date = as_of, country = "France"
+)
+plot_envelope(env_fr)
+```
+
+France has now passed one hundred thousand hectares for the year, and its 2026
+line has pulled clear of every recent summer except 2022. A single fire is most
+of that recent jump, and it is close to home for me. As a French reader I have
+followed this Atlantic coast for years, and for the first seven weeks of the
+season the Gironde, the département around Bordeaux, had not recorded a single
+mapped fire. Then, on `r date_lab(gir_big$ba_date)`, the Médoc pine forest at Le
+Porge burned: about **`r comma(round(gir_big$area_ha, -3))` hectares** in one
+fire, more than the whole of Gironde's catastrophic 2022 season put together. A
+burn that size on that coast is not something I can look past, and I am watching
+it closely as the season runs on.
+
+```{r}
+#| label: envelope-spain
+#| fig-width: 9.5
+#| fig-height: 5
+#| fig-cap: !expr cap_env_es
+
+env_es <- build_envelope(
+  HIST_YEARS, YEAR_CURRENT, snap, eu,
+  SEASON_START_MONTH, SEASON_END_MONTH, as_of_date = as_of, country = "Spain"
+)
+plot_envelope(env_es)
+```
+
+Spain is the heavier story, running far above anything in its own recent record.
+Much of the late-July surge sits in the mountains ringing Madrid: the Sierra de
+Gredos and the ranges north of the capital. The single largest fire of the
+entire 2026 season so far, about
+**`r comma(round(navaluenga$area_ha, -3))` hectares** at Navaluenga in Ávila,
+burned there on `r date_lab(navaluenga$ba_date)`, and San Martín de
+Valdeiglesias, inside the Comunidad de Madrid itself, added about
+`r comma(round(sanmartin$area_ha, -3))` hectares the next day. Taken together,
+the provinces around Madrid account for roughly
+`r comma(round(madrid_ring_ha, -3))` hectares this year.
 
 That is the season through `r as_of_lab`. The real test is still ahead: most
 of a typical European fire season happens in July and August, and this page
