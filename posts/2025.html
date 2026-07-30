@@ -122,11 +122,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <meta property="og:title" content="Summer 2025 Wildfires in Europe: Where Did It Burn? – BURNS: Europe Wildfire Season Tracker">
 <meta property="og:description" content="Tracking Europe’s wildfire season from EFFIS rapid perimeters, refreshed weekly during fire season.">
-<meta property="og:image" content="assets/og-image.png">
+<meta property="og:image" content="https://PierreBeaucoral.github.io/BURNS/posts/assets/og-image.png">
 <meta property="og:site_name" content="BURNS: Europe Wildfire Season Tracker">
 <meta name="twitter:title" content="Summer 2025 Wildfires in Europe: Where Did It Burn? – BURNS: Europe Wildfire Season Tracker">
 <meta name="twitter:description" content="EFFIS rapid perimeters, 1 June – 30 September 2025">
-<meta name="twitter:image" content="assets/og-image.png">
+<meta name="twitter:image" content="https://PierreBeaucoral.github.io/BURNS/posts/assets/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 
@@ -1332,7 +1332,7 @@ Figure&nbsp;3: The same animation with the season accumulating: each frame adds 
     }
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
       var mailtoRegex = new RegExp(/^mailto:/);
-        var filterRegex = new RegExp('/' + window.location.host + '/');
+        var filterRegex = new RegExp("https:\/\/PierreBeaucoral\.github\.io\/BURNS\/");
       var isInternal = (href) => {
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }
