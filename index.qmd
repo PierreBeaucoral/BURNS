@@ -16,7 +16,7 @@ can map. During the fire season (**June to September**) this site refreshes
 `DATA/snapshots/`, and every chart re-renders from that copy. Fire sizes are
 measured directly from the mapped shapes, in a map projection that keeps
 areas honest, and each fire is assigned to the country it overlaps most. Same
-method as the 2025 season analysis this project grew from.
+method as the [2025 season analysis](posts/2025.qmd) this project grew from.
 
 ```{r}
 #| label: tracker-data

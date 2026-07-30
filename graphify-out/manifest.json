@@ -1,0 +1,177 @@
+{
+  ".claude/settings.local.json": {
+    "mtime": 1785443684.0886383,
+    "ast_hash": "9f7396ce62255852ed50d8af8b6b106c",
+    "semantic_hash": ""
+  },
+  "scripts/update_site.sh": {
+    "mtime": 1783114886.0922809,
+    "ast_hash": "6790170cf92333898d770dff35873001",
+    "semantic_hash": "6790170cf92333898d770dff35873001"
+  },
+  "README.md": {
+    "mtime": 1783113803.6784341,
+    "ast_hash": "9d53f92c7f87dabfb008a49c08db77e0",
+    "semantic_hash": "9d53f92c7f87dabfb008a49c08db77e0"
+  },
+  "SESSION_REPORT.md": {
+    "mtime": 1783345430.6539438,
+    "ast_hash": "c17f73d7eb4dd3e96a0005c267962832",
+    "semantic_hash": "c17f73d7eb4dd3e96a0005c267962832"
+  },
+  "_quarto.yml": {
+    "mtime": 1785444294.7790294,
+    "ast_hash": "f115d84c33b8ac67afce44f39c049a3b",
+    "semantic_hash": ""
+  },
+  "about.qmd": {
+    "mtime": 1784797123.9965043,
+    "ast_hash": "24ee977845063d8a917b460492231e00",
+    "semantic_hash": "24ee977845063d8a917b460492231e00"
+  },
+  "index.qmd": {
+    "mtime": 1785444312.059926,
+    "ast_hash": "f3be4f5f315ff0ea1bc1ee86184527e0",
+    "semantic_hash": ""
+  },
+  "posts/2026.qmd": {
+    "mtime": 1785444300.976505,
+    "ast_hash": "e8f21880d7b7655214b254fdeb16f503",
+    "semantic_hash": ""
+  },
+  "theme/fonts/README.md": {
+    "mtime": 1784797625.8632488,
+    "ast_hash": "35fe0a678b1ad846ff92fff1605e1000",
+    "semantic_hash": "35fe0a678b1ad846ff92fff1605e1000"
+  },
+  "R/cache.R": {
+    "mtime": 1783113684.1365118,
+    "ast_hash": "bff2d28a2e2d244543e961bc44479000",
+    "semantic_hash": "bff2d28a2e2d244543e961bc44479000"
+  },
+  "R/flags.R": {
+    "mtime": 1783003853.3966045,
+    "ast_hash": "108225b86f01c1bde08795e260f7cc6a",
+    "semantic_hash": "108225b86f01c1bde08795e260f7cc6a"
+  },
+  "R/geo.R": {
+    "mtime": 1784654031.284324,
+    "ast_hash": "eda2249d2c167828b476edbc292dc52c",
+    "semantic_hash": "eda2249d2c167828b476edbc292dc52c"
+  },
+  "R/helpers.R": {
+    "mtime": 1783111650.8112411,
+    "ast_hash": "07f6363674db424cd69c1c39011007f1",
+    "semantic_hash": "07f6363674db424cd69c1c39011007f1"
+  },
+  "R/pipeline.R": {
+    "mtime": 1785189185.3781056,
+    "ast_hash": "e3dd272f67f123e0975ea50b7dc9f749",
+    "semantic_hash": "e3dd272f67f123e0975ea50b7dc9f749"
+  },
+  "R/plots.R": {
+    "mtime": 1785189779.3762734,
+    "ast_hash": "d52a138456bc3471df7d947e93b01c90",
+    "semantic_hash": "d52a138456bc3471df7d947e93b01c90"
+  },
+  "R/theme.R": {
+    "mtime": 1784797625.8795636,
+    "ast_hash": "f301312cc9a6a9a0b9ae6c2d88c68410",
+    "semantic_hash": "f301312cc9a6a9a0b9ae6c2d88c68410"
+  },
+  "R/tokens.R": {
+    "mtime": 1784797625.867581,
+    "ast_hash": "b72097828e8fdb26dffd7cb2d18ece83",
+    "semantic_hash": "b72097828e8fdb26dffd7cb2d18ece83"
+  },
+  "scripts/fetch_effis.R": {
+    "mtime": 1783073387.1151607,
+    "ast_hash": "b11fd35453139ea1dee901e6a2d105cf",
+    "semantic_hash": "b11fd35453139ea1dee901e6a2d105cf"
+  },
+  "scripts/latest_snapshot.R": {
+    "mtime": 1783065229.3376625,
+    "ast_hash": "b12155fe69ea629ff07f96843ff66904",
+    "semantic_hash": "b12155fe69ea629ff07f96843ff66904"
+  },
+  "theme/build-tokens.R": {
+    "mtime": 1784797760.6645832,
+    "ast_hash": "2f2670fb6003e1b24a759592133eb73b",
+    "semantic_hash": "2f2670fb6003e1b24a759592133eb73b"
+  },
+  ".claude/settings.json": {
+    "mtime": 1785194020.552411,
+    "ast_hash": "38796823a091aa45963741a5ce1f3833",
+    "semantic_hash": ""
+  },
+  "_freeze/posts/2025/execute-results/html.json": {
+    "mtime": 1785447671.1672301,
+    "ast_hash": "5107d13fc48b3017b8009c8e294d24da",
+    "semantic_hash": ""
+  },
+  "_freeze/site_libs/Proj4Leaflet-1.0.1/proj4leaflet.js": {
+    "mtime": 1785447517.465,
+    "ast_hash": "4c72a5a790e066510f9eb68541280646",
+    "semantic_hash": ""
+  },
+  "_freeze/site_libs/clipboard/clipboard.min.js": {
+    "mtime": 1775728893.0,
+    "ast_hash": "15f52a1ee547f2bdd46e56747332ca2d",
+    "semantic_hash": ""
+  },
+  "_freeze/site_libs/htmlwidgets-1.6.4/htmlwidgets.js": {
+    "mtime": 1785447517.457,
+    "ast_hash": "237f59bc086ccf24f39be55311023b91",
+    "semantic_hash": ""
+  },
+  "_freeze/site_libs/jquery-3.6.0/jquery-3.6.0.js": {
+    "mtime": 1785447517.458,
+    "ast_hash": "2849239b95f5a9a2aea3f6ed9420bb88",
+    "semantic_hash": ""
+  },
+  "_freeze/site_libs/jquery-3.6.0/jquery-3.6.0.min.js": {
+    "mtime": 1785447517.459,
+    "ast_hash": "8fb8fee4fcc3cc86ff6c724154c49c42",
+    "semantic_hash": ""
+  },
+  "_freeze/site_libs/leaflet-1.3.1/leaflet.js": {
+    "mtime": 1785447517.463,
+    "ast_hash": "af438f3b0ec09c81bc8fb9959de88155",
+    "semantic_hash": ""
+  },
+  "_freeze/site_libs/leaflet-binding-2.2.3/leaflet.js": {
+    "mtime": 1785447517.466,
+    "ast_hash": "7b0d68b050b79c5699a9f361b697b6ef",
+    "semantic_hash": ""
+  },
+  "_freeze/site_libs/leaflet-providers-3.0.0/leaflet-providers.js": {
+    "mtime": 1785447517.467,
+    "ast_hash": "e7f9d0928e9be4a2b45732d897850a39",
+    "semantic_hash": ""
+  },
+  "_freeze/site_libs/leaflet-providers-plugin-2.2.3/leaflet-providers-plugin.js": {
+    "mtime": 1785447517.467,
+    "ast_hash": "8fb426b3cfaa7d730f3b56a104012882",
+    "semantic_hash": ""
+  },
+  "_freeze/site_libs/pagedtable-1.1/js/pagedtable.js": {
+    "mtime": 1785447671.059,
+    "ast_hash": "8b657fbd2add193c16394a3f8339d3cf",
+    "semantic_hash": ""
+  },
+  "_freeze/site_libs/proj4-2.6.2/proj4.min.js": {
+    "mtime": 1785447517.464,
+    "ast_hash": "4c6ef5a940694e1acc5c9ef66572fa79",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1785194020.5519407,
+    "ast_hash": "82efb97a359f5c7290bf2513d14686be",
+    "semantic_hash": ""
+  },
+  "posts/2025.qmd": {
+    "mtime": 1785447331.6302695,
+    "ast_hash": "aa9f44e0bb2478815dd0a3a8e55b0ed3",
+    "semantic_hash": ""
+  }
+}

@@ -20,7 +20,7 @@ area it can map. I work with those outlines. I measure each fire's size
 directly from its shape, using a map projection that keeps areas honest, so
 hectares are comparable across countries. And I count only the parts that
 fall inside Europe. The method is the same as in the [2025 season
-analysis](../wildfires-europe-2025-local.html) this project grew out of; that
+analysis](2025.qmd) this project grew out of; that
 post remains the reference for the details.
 
 ::: {.callout-note title="Three things to know about these fire outlines"}
@@ -252,6 +252,39 @@ at this date. My honest reading has hardened to *the second-worst start in a
 decade, behind only 2022*. Most of a European fire season happens in July and
 August. This line has most of its story still ahead of it, and I will not call
 a season in week eight.
+
+### The same season, played back
+
+The chart above compresses eight weeks into one frame, which is exactly what
+makes a step in the line easy to read past. So here is the same data at its own
+pace: the map and the line locked to one clock, one frame per day. A fire
+flares bright on the day it is mapped, glows for two more, then settles to a
+scar, and the ring around it is sized by area, so a megafire announces itself
+rather than becoming one pixel among thousands. The animation holds for a beat
+on the three biggest days.
+
+Watch 22 July. Two rings open almost together, one over the Gironde and one
+over Ávila: 44,403 hectares in Spain and 39,044 in France on the same day. The
+line jumps 92,000 hectares in one step, and the readout above it goes to 597%
+of a typical season. That single day is most of the gap between 2026 and an
+ordinary year.
+
+::: {#fig-race}
+![](/assets/anim/2026-race.gif){fig-alt="Two-panel animation: a map of Europe accumulating wildfire perimeters day by day beside the cumulative burned-area chart drawing itself against the 2017-2025 range."}
+
+The 2026 season played back day by day, 1 June to `r as_of_lab`. Left: mapped
+perimeters accumulating, coloured by age (bright on the day of mapping, then
+fading to a muted scar); dot and ring radius scale with the square root of
+burned area, so marker size is proportional to area. Right: the same cumulative
+burned-area chart as above, drawn to the same date, against the 2017-2025
+min-max band (grey) and median (dashed). The header reports the running total
+as a percentage of the historical median for that calendar date. Playback holds
+on the three largest burn days, which are annotated with the fires that drove
+them (any fire contributing at least 10% of that day's area). The map viewport
+is framed on the 1st-99th percentile of fire locations, so a few outlying
+Nordic and Irish fires sit near or just beyond the edge. Source: EFFIS rapid
+perimeters, snapshot `r basename(snap)`; geometry in EPSG:3035.
+:::
 
 ## Does Europe only burn in summer?
 

@@ -8,11 +8,11 @@ project:
   # render, so R figures and HTML chrome always agree. Pure local, no network.
   pre-render:
     - theme/build-tokens.R
-  # NOTE: wildfires-europe-2025-local.qmd stays frozen at repo root for now.
   render:
     - index.qmd
     - about.qmd
     - posts/2026.qmd
+    - posts/2025.qmd
 
 website:
   title: "BURNS: Europe Wildfire Season Tracker"
@@ -34,8 +34,8 @@ website:
         menu:
           - text: "2026 (current)"
             href: posts/2026.qmd
-          - text: "2025 (archive, coming)"
-            href: index.qmd
+          - text: "2025 (archive)"
+            href: posts/2025.qmd
       - text: "About"
         href: about.qmd
 

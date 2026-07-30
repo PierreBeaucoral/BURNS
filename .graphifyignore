@@ -1,0 +1,28 @@
+# Graphify ignore: keep the graph focused on source, not data/build artifacts.
+# Heavy raw data and rendered output (re-generatable, not part of the codebase map)
+DATA/
+_site/
+.quarto/
+.git/
+quality_reports/
+*.gif
+*.html
+*.geojson
+*.rds
+# Legacy frozen 2025 artifacts (large, superseded by posts/2026.qmd + R/ library)
+wildfires-europe-2025-local.rmd_files/
+WildFires.Rmd
+wildfires-europe-2025*.qmd
+wildfires-europe-2025*.rmarkdown
+wildfires_2025_pretty_plus*.R
+# R/RStudio + OS cruft
+.Rproj.user/
+.Rhistory
+.RData
+.DS_Store
+# Graphify's own output
+graphify-out/
+# Images (flag icons, favicon, social card) are not code-map material and each
+# one would spawn its own vision subagent (token waste)
+*.png
+assets/flags_rect/
