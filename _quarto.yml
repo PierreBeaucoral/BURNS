@@ -4,6 +4,14 @@ project:
   # All qmd chunks execute with the project root as the working directory, so
   # posts/*.qmd can source("R/...") and read DATA/ with root-relative paths.
   execute-dir: project
+  # og-image.png is referenced only from the open-graph/twitter-card metadata
+  # below, never from a document, so Quarto does not treat it as a resource and
+  # will not copy it into _site/. Without this line it survives on gh-pages only
+  # as a leftover from an older build, and the first clean publish silently
+  # 404s every social-share preview. favicon.png needs no entry: `favicon:` is
+  # a declared resource, so Quarto copies that one itself.
+  resources:
+    - assets/og-image.png
   # Regenerate the SCSS colour mirror from the shared token YAML before every
   # render, so R figures and HTML chrome always agree. Pure local, no network.
   pre-render:
