@@ -1,15 +1,15 @@
 ---
 title: "Summer 2026 Wildfires in Europe: State of the Season"
-subtitle: "EFFIS rapid perimeters, as of 26 July 2026"
+subtitle: "EFFIS rapid perimeters, as of 10 August 2026"
 author: "Pierre Beaucoral"
-date: 2026-07-27
+date: 2026-08-10
 execute:
   freeze: false
 ---
 
 Every summer now brings the same headlines out of the Mediterranean, and the
 same question underneath them: is this year actually worse, or does it just
-feel that way? The 2026 fire season is about eight weeks old, and this page is
+feel that way? The 2026 fire season is about ten weeks old, and this page is
 my attempt at an answer: what has burned so far, where, and how that compares
 with recent seasons at the same point in the calendar. It is a **state of the
 season**, not a verdict.
@@ -245,17 +245,20 @@ plot_envelope(envelope)
 Read this like a race against the past. The grey band is the space between
 the calmest and the most severe of the last nine seasons, day by day. The
 dashed line is the middle of the pack. The orange line is 2026, and it stops
-where the data stops, on `r as_of_lab`. Eight weeks in, 2026 is
+where the data stops, on `r as_of_lab`. Ten weeks in, 2026 is
 `r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)` and now
-near the top of the band: of the last nine seasons, only 2022 was further along
+near the top of the band: of the last nine seasons, only 2025 was further along
 at this date. My honest reading has hardened to *the second-worst start in a
-decade, behind only 2022*. Most of a European fire season happens in July and
+decade, behind only 2025*. That order is new: through late July it was 2022 that
+led, but 2025 burned violently in early August and has pulled well ahead, while
+2026 has edged past 2022 into second by a margin thin enough to change again.
+Most of a European fire season happens in July and
 August. This line has most of its story still ahead of it, and I will not call
-a season in week eight.
+a season in week ten.
 
 ### The same season, played back
 
-The chart above compresses eight weeks into one frame, which is exactly what
+The chart above compresses ten weeks into one frame, which is exactly what
 makes a step in the line easy to read past. So here is the same data at its own
 pace: the map and the line locked to one clock, one frame per day. A fire
 flares bright on the day it is mapped, glows for two more, then settles to a
@@ -1085,7 +1088,7 @@ plot_envelope(env_fr)
 ```
 
 France has now passed one hundred thousand hectares for the year, and its 2026
-line has pulled clear of every recent summer except 2022. A single fire is most
+line has pulled clear of every recent summer, 2022 included. A single fire is most
 of that recent jump, and it is close to home for me. As a French reader I have
 followed this Atlantic coast for years, and for the first seven weeks of the
 season the Gironde, the département around Bordeaux, had not recorded a single
