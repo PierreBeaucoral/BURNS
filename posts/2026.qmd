@@ -246,15 +246,21 @@ Read this like a race against the past. The grey band is the space between
 the calmest and the most severe of the last nine seasons, day by day. The
 dashed line is the middle of the pack. The orange line is 2026, and it stops
 where the data stops, on `r as_of_lab`. Ten weeks in, 2026 is
-`r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)` and now
-near the top of the band: of the last nine seasons, only 2025 was further along
-at this date. My honest reading has hardened to *the second-worst start in a
-decade, behind only 2025*. That order is new: through late July it was 2022 that
-led, but 2025 burned violently in early August and has pulled well ahead, while
-2026 has edged past 2022 into second by a margin thin enough to change again.
-Most of a European fire season happens in July and
-August. This line has most of its story still ahead of it, and I will not call
-a season in week ten.
+`r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)`
+and, until the day before this snapshot, above the band entirely. For the
+thirteen days from 28 July to 9 August the orange line ran clear of the grey:
+not near the top of the range of the last nine seasons but outside it, meaning
+no season since 2017 had burned this much by that point in the calendar. That
+is the honest headline of this fortnight, and it is worth stating before the
+ranking that follows.
+
+The ranking changed on the last day. On 10 August the 2025 trajectory added
+some 177,000 hectares in one day and overtook 2026, which is what leaves this
+season reading as *the second-worst start in a decade, behind only 2025*. That
+order is one day old. It is also thin: 2022 sits about two per cent behind
+2026, close enough to reclaim second on a single bad afternoon. Most of a
+European fire season happens in July and August. This line has most of its
+story still ahead of it, and I will not call a season in week ten.
 
 ### The same season, played back
 
