@@ -1,15 +1,15 @@
 ---
 title: "Summer 2026 Wildfires in Europe: State of the Season"
-subtitle: "EFFIS rapid perimeters, as of 26 July 2026"
+subtitle: "EFFIS rapid perimeters, as of 24 August 2026"
 author: "Pierre Beaucoral"
-date: 2026-07-27
+date: 2026-08-25
 execute:
   freeze: false
 ---
 
 Every summer now brings the same headlines out of the Mediterranean, and the
 same question underneath them: is this year actually worse, or does it just
-feel that way? The 2026 fire season is about eight weeks old, and this page is
+feel that way? The 2026 fire season is about twelve weeks old, and this page is
 my attempt at an answer: what has burned so far, where, and how that compares
 with recent seasons at the same point in the calendar. It is a **state of the
 season**, not a verdict.
@@ -245,17 +245,44 @@ plot_envelope(envelope)
 Read this like a race against the past. The grey band is the space between
 the calmest and the most severe of the last nine seasons, day by day. The
 dashed line is the middle of the pack. The orange line is 2026, and it stops
-where the data stops, on `r as_of_lab`. Eight weeks in, 2026 is
-`r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)` and now
-near the top of the band: of the last nine seasons, only 2022 was further along
-at this date. My honest reading has hardened to *the second-worst start in a
-decade, behind only 2022*. Most of a European fire season happens in July and
-August. This line has most of its story still ahead of it, and I will not call
-a season in week eight.
+where the data stops, on `r as_of_lab`. Twelve weeks in, 2026 is
+`r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)` and sits
+high in the band: of the last nine seasons, only 2025 was further along at this
+date.
+
+That is a milder verdict than this page carried in late July, and the reason is
+worth pausing on, because it is easy to misread as good news. On 26 July, 2026
+was running at close to four times a typical season. It has not eased off
+since: it has burned roughly 10,000 hectares a day in the weeks that followed,
+against about 6,000 a day earlier in the summer. What changed is the yardstick,
+not the fire. August is when an ordinary European season does much of its own
+burning, so the median line climbed steeply and closed most of the gap. My
+honest reading is *clearly elevated, second only to 2025, and no longer the
+lonely outlier it looked like in July*. Most of a European fire season happens
+in July and August. September is still ahead, and I will not call a season in
+week twelve.
+
+Something did change over the last fortnight, and it needs a careful reading.
+The daily pace has fallen: about 6,200 hectares a day over the last two weeks,
+and closer to 2,900 over the last one, against nearly 10,000 a day averaged
+across the month from 26 July. That looks like a season running out of steam,
+and part of it genuinely is. But part of it is an artifact of how this data
+arrives, and it would be easy to over-read.
+
+::: {.callout-note title="Why the last few days always look quiet"}
+EFFIS maps fires as usable satellite imagery arrives, so the most recent days
+are the least complete and keep filling in afterwards. That is measurable
+rather than hypothetical. Last week's snapshot reported about 589,000 hectares
+burned between 1 June and 20 August. This week's snapshot, looking at those
+very same dates, reports about 614,000: roughly 25,000 hectares, or 4%, showed
+up after the fact. So read the end of the orange line as a floor that will
+rise, not as a finished measurement. The quiet last week on this page will look
+busier on next week's.
+:::
 
 ### The same season, played back
 
-The chart above compresses eight weeks into one frame, which is exactly what
+The chart above compresses twelve weeks into one frame, which is exactly what
 makes a step in the line easy to read past. So here is the same data at its own
 pace: the map and the line locked to one clock, one frame per day. A fire
 flares bright on the day it is mapped, glows for two more, then settles to a
@@ -264,10 +291,15 @@ rather than becoming one pixel among thousands. The animation holds for a beat
 on the three biggest days.
 
 Watch 22 July. Two rings open almost together, one over the Gironde and one
-over Ávila: 44,403 hectares in Spain and 39,044 in France on the same day. The
-line jumps 92,000 hectares in one step, and the readout above it goes to 597%
-of a typical season. That single day is most of the gap between 2026 and an
-ordinary year.
+over Ávila: about 42,000 hectares in Spain and 37,000 in France on the same
+day. The line jumps by roughly 87,000 hectares in one step, and the readout
+above it climbs to more than six times a typical season. Then watch 6 August,
+much further southwest, when a single fire in Huelva adds about 44,000 more.
+
+Those two days are worth comparing, because they show the season changing
+character. In late July, 22 July alone accounted for most of the distance
+between 2026 and an ordinary year. It no longer does: the burning has kept
+coming since, and that one day is now about a third of the gap.
 
 ::: {#fig-race}
 ![](/assets/anim/2026-race.gif){fig-alt="Two-panel animation: a map of Europe accumulating wildfire perimeters day by day beside the cumulative burned-area chart drawing itself against the 2017-2025 range."}
@@ -794,6 +826,13 @@ hectares flatter big countries. The right panel asks a fairer question: how
 much of the country's *own* land has burned? Small countries can be hit much
 harder relative to their size, and that is where the order reshuffles.
 
+One shift is worth naming this week. While Iberia stayed almost flat, the
+western Balkans did not: Bosnia and Herzegovina, Serbia, North Macedonia and
+Albania all added meaningfully to their totals since the last update, and
+Bosnia now sits fifth in Europe for the summer window. The centre of gravity of
+this season has been moving east over the last fortnight, even as the
+Europe-wide total slowed.
+
 # Is fire returning to old scars?
 
 Some land burns again and again. To see how much of 2026 falls on ground that
@@ -836,8 +875,10 @@ ggplot() +
   theme(legend.position = "bottom")
 ```
 
-On the map, Spain's fires overwhelmingly break new ground, while France and
-Portugal fall more often on ground that has already burned since 2017.
+On the map, Spain's fires overwhelmingly break new ground, while France,
+Portugal and Italy return several times more often to ground that has already
+burned since 2017. That contrast has held all season, and Spain's August fires
+in Huelva and Aragón reinforced it rather than softening it.
 
 ```{r}
 #| label: aude-numbers
@@ -1051,8 +1092,18 @@ madrid_ring <- fs_df |> dplyr::filter(
 madrid_ring_ha <- sum(madrid_ring$area_ha, na.rm = TRUE)
 navaluenga <- fs_df |> dplyr::filter(grepl("Navaluenga", dplyr::coalesce(commune, ""))) |>
   dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
-sanmartin <- fs_df |> dplyr::filter(grepl("Valdeiglesias", dplyr::coalesce(commune, ""))) |>
+
+# Largest fire inside the Comunidad de Madrid itself. Selected by PROVINCE, not
+# by commune name: EFFIS re-attributes communes between snapshots as perimeters
+# are refined (the 2026-07-23 fire was mapped under San Martin de Valdeiglesias
+# in the 26 July snapshot and under Navas del Rey in the 20 August one), which
+# silently collapsed a commune-name filter to a 35 ha fire and rounded the
+# prose figure to "0 hectares". Province is the stable unit here.
+madrid_big <- fs_df |> dplyr::filter(!is.na(province), province == "Madrid") |>
   dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
+
+# Season-wide largest fire, so the prose never hardcodes which fire leads.
+biggest_fire <- fs_df |> dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
 
 # English date labels, locale-proof (see as_of_lab in the setup chunk)
 date_lab <- function(d) paste(lubridate::day(d), month.name[lubridate::month(d)])
@@ -1108,22 +1159,35 @@ env_es <- build_envelope(
 plot_envelope(env_es)
 ```
 
-Spain is the heavier story, running far above anything in its own recent record.
-Much of the late-July surge sits in the mountains ringing Madrid: the Sierra de
-Gredos and the ranges north of the capital. The single largest fire of the
-entire 2026 season so far, about
-**`r comma(round(navaluenga$area_ha, -3))` hectares** at Navaluenga in Ávila,
-burned there on `r date_lab(navaluenga$ba_date)`, and San Martín de
-Valdeiglesias, inside the Comunidad de Madrid itself, added about
-`r comma(round(sanmartin$area_ha, -3))` hectares the next day. Taken together,
+Spain is the heavier story, running far above anything in its own recent record,
+and it has now produced two separate surges rather than one. The first sits in
+the mountains ringing Madrid: the Sierra de Gredos and the ranges north of the
+capital. About **`r comma(round(navaluenga$area_ha, -3))` hectares** burned at
+Navaluenga in Ávila on `r date_lab(navaluenga$ba_date)`, and
+`r madrid_big$commune`, inside the Comunidad de Madrid itself, added about
+`r comma(round(madrid_big$area_ha, -3))` hectares the next day. Taken together,
 the provinces around Madrid account for roughly
 `r comma(round(madrid_ring_ha, -3))` hectares this year.
 
-That is the season through `r as_of_lab`. The real test is still ahead: most
-of a typical European fire season happens in July and August, and this page
-updates weekly as new EFFIS outlines come in. Watch, above all, whether the
-elevated pace from this first month holds, eases, or turns into something
-worse.
+The second surge came in August, and it moved the record. The largest single
+fire of the 2026 season so far is no longer in the Madrid ring at all: about
+**`r comma(round(biggest_fire$area_ha, -3))` hectares** at
+`r biggest_fire$commune` in `r biggest_fire$province`, mapped on
+`r date_lab(biggest_fire$ba_date)`, in the Atlantic southwest of Andalusia
+rather than the central mountains. Aragón followed four days later, with
+another large fire in the Huesca pre-Pyrenees. This is the pattern worth
+watching in the weeks left: 2026's Spanish burning is not staying in one place.
+
+That is the season through `r as_of_lab`. July and August carry most of a
+typical European fire season, and they are now essentially behind us: 2026
+leaves them clearly above normal and second only to 2025. The question this
+page asked in July, whether the early pace would hold or ease, now has an
+answer in two parts. It held through the first half of August, and then eased
+markedly. How markedly is not yet knowable, because the most recent days are
+still filling in. What is left to watch is September, quiet in some years and
+the month Iberia burns again in others, and the western Balkans, which are
+still adding while the west has gone still. This page updates weekly as new
+EFFIS outlines come in.
 
 ::: {.callout-note title="A final word of caution"}
 Everything on this page is a rapid satellite estimate, not an official

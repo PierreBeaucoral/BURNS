@@ -56,3 +56,151 @@
 **Status:**
 - Done: full pipeline, website, 2026 page, quality gate passed (aggregate ~91-92)
 - Pending: user decision on GitHub publish (gh repo + quarto publish gh-pages); September retrospective ideas in quality_reports/viz_ideas_2026.md
+
+## 2026-08-20 19:10 — Weekly update: 2026-08-20 snapshot (data through 20 Aug)
+
+**Operations:**
+- Fetched `DATA/snapshots/2026-08-20/` (11/11 years OK). Settled years 2016-2025 hardlinked
+  from the 2026-07-27 snapshot, so only the live 2026 layer downloaded (~85 MB, no disk cost
+  for the archive). `fetch_effis.R` skips existing files but still re-validates them.
+- Rebuilt `assets/anim/2026-race.gif` (119 frames) via `scripts/build_race_anim.R 2026`.
+  Note: `update_site.sh` does NOT rebuild the animation; it must be run separately.
+- Revised the data-driven prose in `posts/2026.qmd` against recomputed numbers.
+- `scripts/update_site.sh --no-fetch`: completeness gate PASS, `quarto render` clean.
+
+**Decisions:**
+- Kept the hardlink-and-fetch-current-year pattern of the previous five weekly updates
+  (faster, and the volume is at 99% capacity) rather than refetching the full archive.
+- Did not hardcode the new re-burn percentages into prose; kept the claim qualitative to
+  avoid re-creating the weekly staleness problem that this update had to fix.
+- Did not publish. Publishing remains a separate explicit user action.
+
+**Results:**
+- 2026 layer grew 12,602 -> 15,220 features; Europe-clipped season total (1 Jun -> 20 Aug)
+  589,216 ha across 2,771 fires, 189% of the 2017-2025 median (was 373.6% on 26 Jul).
+- Season ranking flipped: 2026 is 2nd of 10 at this date behind **2025** (954,710 ha),
+  no longer "behind only 2022". Post's headline verdict rewritten accordingly.
+- 2026 did not slow down: ~10,000 ha/day since 26 Jul vs ~6,200 ha/day before. The ratio
+  fell only because the median season does its own heavy burning in August. Prose now makes
+  this distinction explicitly so the softer ratio does not read as good news.
+- Largest fire of 2026 changed: Niebla, Huelva (43,772 ha, 6 Aug) overtook Navaluenga
+  (42,458 ha, 22 Jul). Added the August/Andalusia + Aragón surge to the Spain section.
+- 22 July animation figures all revised by EFFIS (42,458 / 37,162 / 87,327 ha step / 612%).
+  "That single day is most of the gap" was false (now 32%); rewritten.
+- Re-burn claim re-verified and holds: Spain 7.7% re-burn vs France 24.5%, Portugal 29.3%,
+  Italy 29.3%; Europe-wide 20.3%.
+
+**LEARN entries:**
+- [LEARN:gotcha] Selecting a fire by EFFIS `commune` name is unstable across snapshots.
+  The 2026-07-23 Madrid fire was mapped under "San Martín de Valdeiglesias" on 26 Jul and
+  under "Navas del Rey" on 20 Aug. The commune-name filter silently fell through to an
+  unrelated 35 ha fire, and `round(35, -3)` would have published "added about 0 hectares".
+  Impact: a silent, plausible-looking wrong number in published prose.
+  Apply: select named fires by `province` (stable) plus date/rank, never by commune string.
+  Fixed in the `france-spain-numbers` chunk with an explanatory comment.
+- [LEARN:workflow] The weekly update is four steps, not two: fetch -> rebuild race animation
+  -> revise the hardcoded prose in posts/2026.qmd -> render. `update_site.sh` covers only
+  fetch and render; the animation and the prose are manual and easy to forget.
+
+**Commits:**
+- (pending user decision) prose revision + rebuilt animation
+
+**Status:**
+- Done: snapshot, animation, prose revision, render, output verified against rendered HTML
+- Pending: user decision on `git commit` and `quarto publish gh-pages --no-prompt`
+- Watch: volume is at ~99% capacity. Old snapshots (2026-07-03 alone is ~523 MB of
+  non-shared files) and 861 MB of `DATA/cache/rds` are the reclaimable candidates, but
+  snapshots are the project's reproducibility record so deletion is a user decision.
+
+## 2026-08-21 09:55 — Published the 20 Aug build + fixed the og-image publish regression
+
+**Operations:**
+- `quarto publish gh-pages --no-prompt` timed out at 10 min: it RE-RENDERS by default and never
+  reached the push. Re-ran as `quarto publish gh-pages --no-render --no-prompt` (the `_site/` from
+  2026-08-20 was already verified), which published in seconds.
+- Restored `assets/og-image.png` into `_site/assets/` and republished.
+- Added a `resources:` key to `_quarto.yml` so the og-image is copied on every render.
+- Removed strays left by the timed-out publish: `posts/2026.rmarkdown`, root `site_libs/`.
+
+**Decisions:**
+- Published only after explicit user approval (standing rule honoured).
+- Fixed the og-image at the source (project `resources:`) rather than hand-restoring it, which is
+  what happened on 2026-08-10 and would have recurred every week.
+
+**Results:**
+- Live site now at `881ccd9`, "as of 20 August 2026" on index and season page.
+- All 14 figures changed vs the 10 Aug build and are confirmed live (envelope-1.png 84,884 ->
+  128,557 bytes, verified by curl against the public URL).
+- Reader-reported "figures still 10 Aug" was browser caching, not a stale publish: Quarto gives
+  figures stable filenames, so a returning browser reuses cached PNGs while re-fetching the HTML.
+  GitHub Pages sends `cache-control: max-age=600`, so it self-clears in 10 minutes; Cmd+Shift+R
+  is the immediate fix.
+
+**LEARN entries:**
+- [LEARN:gotcha] `quarto publish gh-pages` re-renders by default. With this project's render cost
+  that exceeds a 10-minute command budget and the push never happens, leaving `posts/*.rmarkdown`
+  and a root `site_libs/` behind. Apply: when `_site/` is already rendered and verified, always
+  publish with `--no-render`.
+- [LEARN:gotcha] Quarto copies `favicon:` automatically but NOT the `open-graph`/`twitter-card`
+  `image:`, because nothing links to it from page content, so a clean publish drops it. Apply:
+  keep `assets/og-image.png` listed under project `resources:` (done 2026-08-21).
+- [LEARN:gotcha] Check `origin/gh-pages`, not the local `gh-pages` ref, when asking what is live.
+  The local ref was 3 weeks stale and led to a wrong "the live site says 26 July" claim.
+
+**Commits:**
+- gh-pages: `34825d5` then `881ccd9` (site builds; main still uncommitted)
+
+**Status:**
+- Done: live site updated to the 20 Aug snapshot and verified over HTTP
+- Pending: `main` still has uncommitted work (`posts/2026.qmd`, `_quarto.yml`, rebuilt GIF,
+  `SESSION_REPORT.md`) awaiting a weekly-update commit
+
+## 2026-08-25 16:20 — Weekly update: 2026-08-25 snapshot (data through 24 Aug)
+
+**Operations:**
+- Checked the live site first (per user request): `origin/gh-pages` at `881ccd9`, "as of
+  20 August 2026", og-image present. Live build was 5 days stale.
+- Fetched `DATA/snapshots/2026-08-25/` (11/11 years OK), settled years hardlinked from 08-20.
+- Recomputed prose facts; rebuilt `assets/anim/2026-race.gif` (123 frames); revised
+  `posts/2026.qmd`; `update_site.sh --no-fetch` rendered clean.
+- Verified against rendered HTML: index 619 kha / 2,997 / 189%, both pages "as of 24 August".
+
+**Decisions:**
+- Did NOT write "the season is ending" despite the pace collapse, because most of the recent
+  drop is EFFIS mapping lag (see Results). Added a callout quantifying the backfill instead.
+- Left the envelope verdict ("second only to 2025", 1.9x median) unchanged: recomputation
+  confirmed it still holds, so no edit was warranted.
+- Disk pressure resolved externally: 118 GB free now (was 3.8 GB), so no cache/snapshot pruning.
+
+**Results:**
+- Season (1 Jun -> 24 Aug): 619,299 ha / 2,997 fires / 189.1% of median. Rank 2 of 10,
+  still behind only 2025 (962,815 ha). Season age 12.0 weeks.
+- Pace fell: ~9,680 ha/day (26 Jul -> 24 Aug) -> 6,188 ha/day (last 14 d) -> 2,907 (last 7 d).
+- **Backfill quantified:** the same calendar window (1 Jun - 20 Aug) read 589,216 ha in the
+  08-20 snapshot and 614,226 ha in the 08-25 snapshot: +25,010 ha (+4.2%) added retroactively.
+  This is why the recent-days slowdown must not be read as the season ending.
+- Balkans surge while Iberia flattened: Bosnia 26,256 -> 35,361 ha (now 5th in Europe),
+  Serbia 13,558 -> 21,143, N. Macedonia +2,839, Albania +2,015. A backfilled 13,920 ha fire
+  at Kovin, Serbia (21 Jul) entered the top ten.
+- The `_quarto.yml` `resources:` fix from 21 Aug worked: og-image.png was copied into
+  `_site/assets/` automatically, with no manual restore step.
+
+**LEARN entries:**
+- [LEARN:technical] EFFIS backfills earlier dates between snapshots (+4.2% for the same
+  1 Jun-20 Aug window in 5 days). Any "the pace is slowing" claim computed from the last
+  7-14 days is biased downward. Apply: before writing a slowdown narrative, diff the OLD
+  snapshot's envelope cache against the NEW one at the SAME date; quote that delta as the
+  uncertainty. Cached envelopes make this a two-line check.
+- [LEARN:gotcha] The scratchpad directory is wiped between sessions, so helper scripts written
+  there (numbers.R/verify.R) must be recreated each week. `nohup Rscript <missing file>` fails
+  instantly and the monitor then waits forever on a DONE marker that never comes.
+- [LEARN:gotcha] fetch_effis.R prints "Done: 11/11 years OK" (lowercase "years"); a monitor
+  grepping case-sensitively for "Years OK" never matches and times out.
+
+**Commits:**
+- (pending) still uncommitted on main: posts/2026.qmd, _quarto.yml, assets/anim/2026-race.gif,
+  SESSION_REPORT.md (covers BOTH the 20 Aug and 25 Aug updates)
+
+**Status:**
+- Done: snapshot, animation, prose, render, verification
+- Pending: user decision on commit and on `quarto publish gh-pages --no-render --no-prompt`
