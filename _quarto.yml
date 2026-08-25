@@ -4,6 +4,13 @@ project:
   # All qmd chunks execute with the project root as the working directory, so
   # posts/*.qmd can source("R/...") and read DATA/ with root-relative paths.
   execute-dir: project
+  # The open-graph / twitter-card image is referenced only from metadata below,
+  # never linked from page content, so Quarto does NOT copy it into _site and a
+  # clean `quarto publish` silently drops it (it had to be restored by hand on
+  # 2026-08-10 and again on 2026-08-21). Listing it as a project resource makes
+  # every render copy it. `favicon:` is handled by Quarto and needs no entry.
+  resources:
+    - assets/og-image.png
   # Regenerate the SCSS colour mirror from the shared token YAML before every
   # render, so R figures and HTML chrome always agree. Pure local, no network.
   pre-render:
