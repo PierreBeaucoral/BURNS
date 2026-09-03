@@ -1,15 +1,15 @@
 ---
 title: "Summer 2026 Wildfires in Europe: State of the Season"
-subtitle: "EFFIS rapid perimeters, as of 24 August 2026"
+subtitle: "EFFIS rapid perimeters, as of 2 September 2026"
 author: "Pierre Beaucoral"
-date: 2026-08-25
+date: 2026-09-03
 execute:
   freeze: false
 ---
 
 Every summer now brings the same headlines out of the Mediterranean, and the
 same question underneath them: is this year actually worse, or does it just
-feel that way? The 2026 fire season is about twelve weeks old, and this page is
+feel that way? The 2026 fire season is about thirteen weeks old, and this page is
 my attempt at an answer: what has burned so far, where, and how that compares
 with recent seasons at the same point in the calendar. It is a **state of the
 season**, not a verdict.
@@ -245,44 +245,45 @@ plot_envelope(envelope)
 Read this like a race against the past. The grey band is the space between
 the calmest and the most severe of the last nine seasons, day by day. The
 dashed line is the middle of the pack. The orange line is 2026, and it stops
-where the data stops, on `r as_of_lab`. Twelve weeks in, 2026 is
+where the data stops, on `r as_of_lab`. Thirteen weeks in, 2026 is
 `r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)` and sits
 high in the band: of the last nine seasons, only 2025 was further along at this
 date.
 
 That is a milder verdict than this page carried in late July, and the reason is
 worth pausing on, because it is easy to misread as good news. On 26 July, 2026
-was running at close to four times a typical season. It has not eased off
-since: it has burned roughly 10,000 hectares a day in the weeks that followed,
-against about 6,000 a day earlier in the summer. What changed is the yardstick,
+was running at close to four times a typical season. It did not ease off for
+a long while: it has burned roughly 8,000 hectares a day since then, against
+about 6,000 a day earlier in the summer. What changed is the yardstick,
 not the fire. August is when an ordinary European season does much of its own
 burning, so the median line climbed steeply and closed most of the gap. My
 honest reading is *clearly elevated, second only to 2025, and no longer the
 lonely outlier it looked like in July*. Most of a European fire season happens
-in July and August. September is still ahead, and I will not call a season in
-week twelve.
+in July and August. September has only just begun, and I will not call a
+season in week thirteen.
 
-Something did change over the last fortnight, and it needs a careful reading.
-The daily pace has fallen: about 6,200 hectares a day over the last two weeks,
-and closer to 2,900 over the last one, against nearly 10,000 a day averaged
-across the month from 26 July. That looks like a season running out of steam,
+Something has changed since the middle of August, and it needs a careful
+reading. The daily pace has fallen: about 3,200 hectares a day over the last
+two weeks, and closer to 2,100 over the last one, against more than 8,000 a
+day averaged since 26 July. That looks like a season running out of steam,
 and part of it genuinely is. But part of it is an artifact of how this data
 arrives, and it would be easy to over-read.
 
 ::: {.callout-note title="Why the last few days always look quiet"}
 EFFIS maps fires as usable satellite imagery arrives, so the most recent days
 are the least complete and keep filling in afterwards. That is measurable
-rather than hypothetical. Last week's snapshot reported about 589,000 hectares
-burned between 1 June and 20 August. This week's snapshot, looking at those
-very same dates, reports about 614,000: roughly 25,000 hectares, or 4%, showed
-up after the fact. So read the end of the orange line as a floor that will
+rather than hypothetical. The previous snapshot, taken on 25 August, reported
+about 619,000 hectares burned between 1 June and 24 August. This week's
+snapshot, looking at those very same dates, reports about 647,000: roughly
+27,000 hectares, or 4%, showed up after the fact. So read the end of the
+orange line as a floor that will
 rise, not as a finished measurement. The quiet last week on this page will look
 busier on next week's.
 :::
 
 ### The same season, played back
 
-The chart above compresses twelve weeks into one frame, which is exactly what
+The chart above compresses thirteen weeks into one frame, which is exactly what
 makes a step in the line easy to read past. So here is the same data at its own
 pace: the map and the line locked to one clock, one frame per day. A fire
 flares bright on the day it is mapped, glows for two more, then settles to a
@@ -299,7 +300,7 @@ much further southwest, when a single fire in Huelva adds about 44,000 more.
 Those two days are worth comparing, because they show the season changing
 character. In late July, 22 July alone accounted for most of the distance
 between 2026 and an ordinary year. It no longer does: the burning has kept
-coming since, and that one day is now about a third of the gap.
+coming since, and that one day is now less than a third of the gap.
 
 ::: {#fig-race}
 ![](/assets/anim/2026-race.gif){fig-alt="Two-panel animation: a map of Europe accumulating wildfire perimeters day by day beside the cumulative burned-area chart drawing itself against the 2017-2025 range."}
@@ -827,11 +828,13 @@ much of the country's *own* land has burned? Small countries can be hit much
 harder relative to their size, and that is where the order reshuffles.
 
 One shift is worth naming this week. While Iberia stayed almost flat, the
-western Balkans did not: Bosnia and Herzegovina, Serbia, North Macedonia and
-Albania all added meaningfully to their totals since the last update, and
-Bosnia now sits fifth in Europe for the summer window. The centre of gravity of
-this season has been moving east over the last fortnight, even as the
-Europe-wide total slowed.
+south and east did not. Italy added the most of any country since the last
+update, about 15,000 hectares, partly from late-August fires in Puglia, Sicily
+and Basilicata and partly from earlier fires mapped late. Montenegro added
+roughly 10,000 hectares, a large amount for a country its size, and Bosnia and
+Herzegovina, North Macedonia and Serbia kept climbing. Bosnia still sits fifth
+in Europe for the year. The centre of gravity of this season has been moving
+east and south since mid-August, even as the Europe-wide total slowed.
 
 # Is fire returning to old scars?
 
@@ -1179,15 +1182,15 @@ another large fire in the Huesca pre-Pyrenees. This is the pattern worth
 watching in the weeks left: 2026's Spanish burning is not staying in one place.
 
 That is the season through `r as_of_lab`. July and August carry most of a
-typical European fire season, and they are now essentially behind us: 2026
-leaves them clearly above normal and second only to 2025. The question this
-page asked in July, whether the early pace would hold or ease, now has an
-answer in two parts. It held through the first half of August, and then eased
-markedly. How markedly is not yet knowable, because the most recent days are
-still filling in. What is left to watch is September, quiet in some years and
-the month Iberia burns again in others, and the western Balkans, which are
-still adding while the west has gone still. This page updates weekly as new
-EFFIS outlines come in.
+typical European fire season, and they are now behind us: 2026 leaves them
+clearly above normal and second only to 2025. The question this page asked in
+July, whether the early pace would hold or ease, now has an answer in two
+parts. It held through the first half of August, and then eased markedly. How
+markedly is not yet knowable, because the most recent days are still filling
+in. What is left to watch is September, quiet in some years and the month
+Iberia burns again in others, and the southern and eastern flank, Italy and
+the western Balkans, which are still adding while Iberia has gone still. This
+page updates weekly as new EFFIS outlines come in.
 
 ::: {.callout-note title="A final word of caution"}
 Everything on this page is a rapid satellite estimate, not an official

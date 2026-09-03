@@ -204,3 +204,40 @@
 **Status:**
 - Done: snapshot, animation, prose, render, verification
 - Pending: user decision on commit and on `quarto publish gh-pages --no-render --no-prompt`
+
+## 2026-09-03 14:45 — Weekly update: 2026-09-03 snapshot (data through 2 Sep)
+
+**Operations:**
+- Live site check: `origin/gh-pages` at `153292e` (25 Aug build). Main clean at `bcd9704`.
+- Fetched `DATA/snapshots/2026-09-03/` (11/11 years OK; 2016-2025 hardlinked from 08-25,
+  only 2026 downloaded: 16,455 features, 99 MB, last perimeter dated 2 Sep).
+- Recomputed prose facts (scratchpad numbers.R); rebuilt `assets/anim/2026-race.gif`
+  (132 frames, 1.2 MB); 12 exact-match prose edits in `posts/2026.qmd`;
+  `update_site.sh --no-fetch` rendered clean (exit 0, no leftover .rmarkdown/site_libs).
+- Verified rendered HTML: both pages "as of 2 September 2026"; index 3,419 fires / 184%;
+  post carries 669,000 ha, thirteen weeks, 647,000 backfill figure, Italy +15,000.
+
+**Decisions:**
+- Envelope verdict unchanged ("second only to 2025"): rank 2 of 10 confirmed (2025 983 kha
+  at this date, 2017 655 kha, 2026 669 kha).
+- Replaced the 25 Aug "Balkans surge" paragraph with this week's movers (Italy +15,167 ha,
+  Montenegro +10,176, Bosnia +6,767, N. Macedonia +3,863, Serbia +3,478); Iberia flat
+  (Spain +1,371, Portugal +1,163). "Centre of gravity moving east and south".
+- Kept the backfill callout and refreshed it rather than writing "season over": pace is
+  2,141 ha/day (last 7 d), 3,235 (14 d), 8,208 since 26 Jul, but the 1 Jun-24 Aug window
+  grew from 619,299 to 646,743 ha between snapshots (+27,444, +4.4%).
+- Softened the 22 July claim from "about a third of the gap" to "less than a third" (29%).
+- 22 Jul / 6 Aug / Huelva / Huesca figures re-checked, all still match; no edit.
+
+**Results:**
+- Season (1 Jun -> 2 Sep): 668,635 ha / 3,419 fires / 183.6% of median (364,106 ha).
+  Full-year 2026: 849,291 ha / 10,037 perimeters. Season age 13.3 weeks.
+- Late-August fires were Italian and Balkan: Gravina in Puglia 3,455 ha (25 Aug), Saraj MK
+  1,212, Mongiuffi Melia (Messina) 1,164, Ciminna (Palermo) 921, Craco (Matera) 845.
+
+**Commits:**
+- (pending) uncommitted on main: posts/2026.qmd, assets/anim/2026-race.gif, SESSION_REPORT.md
+
+**Status:**
+- Done: snapshot, animation, prose, render, HTML verification
+- Pending: user decision on commit and on `quarto publish gh-pages --no-render --no-prompt`
