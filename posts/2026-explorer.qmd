@@ -169,11 +169,27 @@ leaf_sf$col <- if_else(leaf_sf$period == "January–May", "#3E8EC4", "#D64A05")
 ```{r}
 #| label: leaflet
 
+# Esri World Light Gray tiles. CARTO's Positron (the previous basemap) now
+# answers keyless requests with "API KEY REQUIRED" watermark tiles
+# (checked 2026-10-02), so this page uses a light, keyless Esri canvas instead.
+# Shared by both maps on this page.
+add_basemap <- function(map) {
+  addTiles(
+    map,
+    urlTemplate = paste0(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/",
+      "World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+    ),
+    attribution = "Tiles &copy; Esri; sources: Esri, HERE, Garmin, OpenStreetMap contributors",
+    options = tileOptions(maxZoom = 16)
+  )
+}
+
 pal_period <- c("#3E8EC4", "#D64A05")  # winter-spring blue vs summer orange-red
 ZOOM_SWITCH <- 7L                      # outlines from this zoom level upward
 
 leaflet(options = leafletOptions(minZoom = 3)) |>
-  addProviderTiles("CartoDB.Positron") |>
+  add_basemap() |>
   addCircleMarkers(
     data = leaf_df, lng = ~lng, lat = ~lat, group = "circles",
     radius = ~radius, weight = 0.6, color = ~col, fillColor = ~col,
@@ -267,7 +283,7 @@ combined_geom <- c(sf::st_geometry(paris_cmp$paris_wgs84), sf::st_geometry(paris
 bbox_all <- sf::st_bbox(combined_geom)
 
 paris_map <- leaflet(width = "100%", height = 520) |>
-  addProviderTiles("CartoDB.Positron") |>
+  add_basemap() |>
   addPolygons(
     data = paris_cmp$paris_wgs84,
     color = "#1A1A1A", weight = 2.4, fill = FALSE, opacity = 0.9
