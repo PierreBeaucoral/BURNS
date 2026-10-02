@@ -1,41 +1,18 @@
 ---
-title: "Summer 2026 Wildfires in Europe: State of the Season"
-subtitle: "EFFIS rapid perimeters, as of 2 September 2026"
+title: "Summer 2026 Wildfires in Europe: The Season in Review"
+subtitle: "Final assessment, EFFIS rapid perimeters through 30 September 2026"
 author: "Pierre Beaucoral"
-date: 2026-09-03
+date: 2026-10-02
 execute:
   freeze: false
 ---
 
 Every summer now brings the same headlines out of the Mediterranean, and the
 same question underneath them: is this year actually worse, or does it just
-feel that way? The 2026 fire season is about thirteen weeks old, and this page is
-my attempt at an answer: what has burned so far, where, and how that compares
-with recent seasons at the same point in the calendar. It is a **state of the
-season**, not a verdict.
-
-A word on the data first. Satellites spot large fires, and Europe's EFFIS
-service (part of the Copernicus programme) draws the outline of each burned
-area it can map. I work with those outlines. I measure each fire's size
-directly from its shape, using a map projection that keeps areas honest, so
-hectares are comparable across countries. And I count only the parts that
-fall inside Europe. The method is the same as in the [2025 season
-analysis](2025.qmd) this project grew out of; that
-post remains the reference for the details.
-
-::: {.callout-note title="Three things to know about these fire outlines"}
-- **Most mapped fires are small, not big.** EFFIS once caught mainly fires of
-  roughly 30 hectares and up, but sharper Sentinel-2 imagery now maps far
-  smaller ones too, so most outlines on this page are in fact well under 30
-  hectares. The very smallest fires are still missed, so totals stay below
-  official statistics.
-- **The outlines are rapid estimates.** They are revised as better satellite
-  imagery arrives. Every number on this page will move a little with each
-  weekly update, and that is by design.
-- **I compare burned area, not fire counts.** The detection system changed in
-  2023 to 2024 and suddenly saw many more small fires. Counting fires across
-  years is therefore misleading; measuring area is much safer.
-:::
+feel that way? All summer, this page tracked the 2026 season week by week and
+refused to call it early. The season window closed on 30 September, so it is
+time for the verdict: how much burned, where, how 2026 ranks against the
+seasons before it, and what made it different.
 
 ```{r}
 #| label: setup
@@ -68,6 +45,8 @@ source(file.path("R", "theme.R"))     # pal_lc, theme_burns()
 source(file.path("R", "flags.R"))     # flag_table()
 source(file.path("R", "pipeline.R"))  # season assembly (all cached)
 source(file.path("R", "plots.R"))     # plot_envelope() (shared with index)
+source(file.path("R", "retro.R"))     # season-end figures (ranking, countries)
+source(file.path("R", "maps.R"))      # overview proportional-symbol map
 source(file.path("scripts", "latest_snapshot.R"))
 
 # -------------------- Season parameters --------------------
@@ -108,6 +87,100 @@ median_ha    <- envelope$meta$median_to_date_ha
 full_ha <- sum(tagged_2026_full$area_ha, na.rm = TRUE)
 full_n  <- nrow(tagged_2026_full)
 
+# -------------------- Season-end verdict (all computed) --------------------
+# Every past season is read at the SAME day index as 2026's last mapped day,
+# so the ranking stays like for like even if the last few days of September
+# carry no mapped perimeter yet.
+hist_at_asof <- envelope$hist_daily |>
+  filter(day_idx == envelope$meta$as_of_day_idx) |>
+  select(year, cum_ha)
+rank_2026  <- 1L + sum(hist_at_asof$cum_ha > season_ha)
+n_seasons  <- nrow(hist_at_asof) + 1L
+beaten_by  <- sort(hist_at_asof$year[hist_at_asof$cum_ha > season_ha])
+calmest_ha <- min(hist_at_asof$cum_ha)
+rank_word  <- c("the worst", "the second-worst", "the third-worst",
+                "the fourth-worst")[rank_2026]
+if (is.na(rank_word)) rank_word <- sprintf("number %d", rank_2026)
+
+# Month by month: 2026 against the median of the same month in 2017-2025
+monthly <- bind_rows(envelope$hist_daily, envelope$current) |>
+  mutate(month = month(ba_date)) |>
+  group_by(year, month) |>
+  summarise(ha = sum(area_ha), .groups = "drop")
+monthly_cmp <- monthly |>
+  filter(year != YEAR_CURRENT) |>
+  group_by(month) |>
+  summarise(med_ha = median(ha), .groups = "drop") |>
+  left_join(monthly |> filter(year == YEAR_CURRENT) |> select(month, ha),
+            by = "month") |>
+  mutate(ratio = ha / med_ha)
+mo <- function(m, col) monthly_cmp[[col]][monthly_cmp$month == m]
+
+# Whole-year ranking (1 Jan - 30 Sep), split spring vs summer. 2016 is shown
+# in the chart but left out of the ranks quoted in prose (lower-confidence year).
+ytd <- build_ytd_ranking(2016:YEAR_CURRENT, snap, eu)
+ytd_ranked <- ytd |>
+  filter(!low_confidence) |>
+  group_by(period) |>
+  mutate(period_rank = rank(-ha, ties.method = "min")) |>
+  ungroup()
+ytd_total_rank <- ytd_ranked |> distinct(year, total_ha) |>
+  mutate(r = rank(-total_ha, ties.method = "min"))
+ytd_rank   <- ytd_total_rank$r[ytd_total_rank$year == YEAR_CURRENT]
+ytd_n      <- nrow(ytd_total_rank)
+ytd_ahead  <- sort(ytd_total_rank$year[ytd_total_rank$r < ytd_rank])
+spring_rank <- ytd_ranked$period_rank[ytd_ranked$year == YEAR_CURRENT &
+                                      ytd_ranked$period == "Jan–May"]
+spring_ahead <- ytd_ranked |>
+  filter(period == "Jan–May", period_rank < spring_rank) |>
+  arrange(desc(ha)) |> pull(year)
+cap_ytd <- sprintf(paste(
+  "Burned area from 1 January to 30 September for each year 2016-%d, split",
+  "into January-May (light) and June-September (dark); %d in orange. Years",
+  "sorted by total. * 2016 is the first archive year and is lower-confidence.",
+  "Perimeters are clipped to the Europe outline without country assignment, so",
+  "June-September bars can differ marginally from the country-tagged totals",
+  "quoted elsewhere. Source: EFFIS rapid perimeters, snapshot %s; areas from",
+  "geometry in EPSG:3035, Europe-clipped."
+), YEAR_CURRENT, YEAR_CURRENT, basename(snap))
+and_list <- function(x) {
+  if (length(x) <= 1L) return(paste(x))
+  paste(paste(x[-length(x)], collapse = ", "), "and", x[length(x)])
+}
+
+# Each country against its own 2017-2025 summers (rank_cur: 1 = worst of 10)
+ctry_hist <- build_country_vs_history(HIST_YEARS, YEAR_CURRENT, snap, eu)
+ctry_r <- function(cty) ctry_hist[ctry_hist$name_long == cty, ]
+# Prose names: countries that take an article in running English text
+with_article <- function(x) {
+  ifelse(x %in% c("United Kingdom", "Netherlands", "Czech Republic"), paste("the", x), x)
+}
+worst_ctry  <- with_article(ctry_hist$name_long[ctry_hist$rank_cur == 1L])
+second_ctry <- with_article(ctry_hist$name_long[ctry_hist$rank_cur == 2L])
+below_ctry  <- with_article(ctry_hist$name_long[ctry_hist$ratio_to_median < 1])
+cap_ctry_hist <- sprintf(paste(
+  "Burned area per country, 1 June to 30 September %d, against each country's",
+  "own 2017-2025 range (grey bar: minimum to maximum; tick: median), for the",
+  "%d countries with the most burned area in %d. Log10 scale; values under",
+  "10 ha are drawn at the 10 ha edge. Countries sorted by %d relative to their",
+  "own median. Source: EFFIS rapid perimeters, snapshot %s; areas from geometry",
+  "in EPSG:3035, Europe-clipped; countries tagged by maximum overlap."
+), YEAR_CURRENT, nrow(ctry_hist), YEAR_CURRENT, YEAR_CURRENT, basename(snap))
+
+# Did the burning move? Area-weighted median latitude/longitude per summer
+loc_sum <- summarise_fire_location(
+  build_fire_locations(c(HIST_YEARS, YEAR_CURRENT), snap, eu)
+)
+loc_cur  <- loc_sum[loc_sum$year == YEAR_CURRENT, ]
+loc_hist <- loc_sum[loc_sum$year != YEAR_CURRENT, ]
+
+ord_word <- function(r) c("first", "second", "third", "fourth", "fifth",
+                          "sixth", "seventh", "eighth", "ninth", "tenth")[r]
+
+# The three biggest single days of the summer
+top_days <- envelope$current |> slice_max(area_ha, n = 3, with_ties = FALSE)
+gap_ha   <- season_ha - median_ha
+
 # Land-cover machinery shared by several chunks
 lc_cols <- c("broadlea", "conifer", "mixed", "scleroph", "transit",
              "agriareas", "artifsurf", "othernatlc", "otherlc")
@@ -120,34 +193,28 @@ lc_labels <- c(
 )
 
 # -------------------- Figure captions (referenced via !expr) --------------------
-cap_envelope <- sprintf(
-  paste(
-    "Cumulative burned area since 1 June: 2026 to date against the 2017–2025 range.",
-    "The shaded band spans the minimum and maximum cumulative trajectory of the nine",
-    "previous seasons on each day of the season; the dashed line is their median.",
-    "The 2026 line stops at its last mapped perimeter (%s)."
-  ),
-  as_of_lab
-)
-cap_hero <- sprintf(
-  paste(
-    "Burn-scar perimeters mapped by EFFIS in 2026 to date (1 January – %s),",
-    "Europe-clipped. Perimeter outlines drawn on national borders; rapid Sentinel-2",
-    "mapping now captures fires down to a few hectares, with the smallest still",
-    "under-represented. Source: EFFIS rapid perimeters,",
-    "snapshot %s; geometry in EPSG:3035."
-  ),
-  as_of_lab, basename(snap)
-)
-cap_facet <- sprintf(
-  paste(
-    "The same 2026 perimeters split by period: late winter and spring (January–May)",
-    "versus the summer window so far (1 June – %s). Panel labels report mapped",
-    "perimeters and Europe-clipped burned area per period. Source: EFFIS rapid",
-    "perimeters, snapshot %s."
-  ),
-  as_of_lab, basename(snap)
-)
+cap_envelope <- sprintf(paste(
+  "2026 burned about %s ha between 1 June and %s, %s of the last %d summers",
+  "and about %.0f%% above their median. Top: cumulative burned area since",
+  "1 June. Thin grey lines are the 2017-2025 seasons; the grey band is the",
+  "middle half of those seasons and the dashed line their median, so they show",
+  "variation across observed years, not statistical uncertainty. Bottom: burned",
+  "area per week in 2026. The shaded last 14 days (faded bars) are still being",
+  "mapped: EFFIS keeps filling in recent dates for weeks (area dated 1 June to",
+  "2 September grew 5%% between the 3 September and 2 October snapshots).",
+  "Source: EFFIS rapid perimeters, snapshot %s; areas from geometry in",
+  "EPSG:3035, Europe-clipped."
+), comma(round(season_ha, -3)), as_of_lab, rank_word, n_seasons,
+   pct_vs_med - 100, basename(snap))
+cap_hero <- sprintf(paste(
+  "Every one of the ten largest 2026 fires sits in Iberia, south-west France or",
+  "the western Balkans, but the season left marks across the whole continent.",
+  "Each circle is one fire mapped between 1 January and %s; circle area is",
+  "proportional to burned area, and colour shows January-May (blue) versus",
+  "summer (orange). Insets zoom on Iberia and south-west France (A) and the",
+  "western Balkans (B), with the ten largest fires labelled by province and",
+  "country. Source: EFFIS rapid perimeters, snapshot %s; geometry in EPSG:3035."
+), as_of_lab, basename(snap))
 cap_countries <- sprintf(
   paste(
     "Top-10 countries by Europe-clipped burned area, 1 January – %s 2026.",
@@ -160,29 +227,24 @@ cap_countries <- sprintf(
 )
 cap_reburn <- sprintf(
   paste(
-    "2026 perimeters (1 January – %s) split into first-time burns (orange-red) and",
-    "re-burns of ground already inside a 2017–2025 EFFIS perimeter (blue). Overlap",
+    "2026 perimeters (1 January – %s) split into ground with no overlap with any",
+    "mapped 2017–2025 EFFIS perimeter (orange-red) and ground already inside one",
+    "(blue). 'No overlap' does not mean never burned: the archive starts in 2016",
+    "and misses the smallest fires. Overlap",
     "computed on ~100 m-simplified geometry in EPSG:3035. Source: EFFIS rapid",
     "perimeters, snapshot %s."
   ),
   as_of_lab, basename(snap)
 )
-cap_landcover <- sprintf(
-  paste(
-    "Land-cover composition of burned area in the 1 June – %s window: 2026 versus",
-    "the pooled (area-weighted) 2017–2025 average for the same window. Shares are",
-    "each perimeter's land-cover percentages weighted by its Europe-clipped area.",
-    "Source: EFFIS rapid perimeters, snapshot %s."
-  ),
-  as_of_lab, basename(snap)
-)
 cap_calendar <- sprintf(
   paste(
-    "Weekly Europe-clipped burned area by year, %d–%d, in ISO calendar weeks.",
-    "Fill on a square-root scale: many weeks burn exactly zero hectares, which a",
-    "log scale cannot display, and sqrt still compresses the July–August peaks",
-    "enough to keep smaller months visible. Grey cells are 2026 weeks that have",
-    "not happened yet; the dashed line marks the last mapped week so far (%s).",
+    "Fire belongs to July and August in almost every year, with spring flare-ups",
+    "in some. Weekly Europe-clipped burned area by year, %d–%d, in ISO calendar",
+    "weeks, darker meaning more area. Fill on a square-root scale: many weeks burn",
+    "exactly zero hectares (palest blue-grey cells), which a log scale cannot",
+    "display. Grey cells are 2026 weeks after this final snapshot; the dashed line",
+    "marks the last mapped week (%s). The near-black October 2017 cell is the",
+    "Portuguese and Galician fires of mid-October 2017.",
     "2016 is the archive's first year and its coverage is less complete than",
     "later years. This chart uses burned area, not fire counts, so the",
     "2023-to-2024 detection-system change (which makes counts incomparable",
@@ -191,17 +253,18 @@ cap_calendar <- sprintf(
   ),
   min(CALENDAR_YEARS), YEAR_CURRENT, as_of_lab, min(CALENDAR_YEARS), YEAR_CURRENT
 )
-cap_natura_trend <- sprintf(
-  paste(
-    "Share of Europe-clipped burned area falling inside a Natura 2000 protected",
-    "site, 1 June – %s each year, computed as area-weighted PERCNA2K (EFFIS's own",
-    "field for the share of each perimeter's own area inside Natura 2000). The",
-    "window is identical every year, so the series is not distorted by how much",
-    "of the season had elapsed. 2026 is highlighted. Source: EFFIS rapid",
-    "perimeters, snapshots covering 2017–%d."
-  ),
-  as_of_lab, YEAR_CURRENT
-)
+cap_natura_trend <- sprintf(paste(
+  "Inside the EU, the share of burned area falling in Natura 2000 sites has no",
+  "clear trend; 2026 sits just above the 2017-2025 median. Top: share of EU-27",
+  "burned area inside a Natura 2000 site, 1 June to 30 September each year,",
+  "computed as PERCNA2K (EFFIS's field for the share of each perimeter inside",
+  "Natura 2000) weighted by Europe-clipped area. Bottom: the same in absolute",
+  "hectares. Non-EU countries are excluded because Natura 2000 only exists in",
+  "member states (Cyprus and Malta fall outside the Europe outline used here).",
+  "Weighting by original rather than clipped perimeter area changes the share",
+  "by 0.3 points or less in nine of ten years. Source: EFFIS rapid perimeters,",
+  "snapshots covering 2017-%d."
+), YEAR_CURRENT)
 cap_natura_map <- sprintf(
   paste(
     "2026 perimeters (1 January – %s) colored by PERCNA2K, the share of each",
@@ -214,121 +277,214 @@ cap_natura_map <- sprintf(
 )
 ```
 
-Two numbers set the scene, and they cover different time windows. Since
-**1 June**, the start of the summer season, satellites have mapped about
+Two numbers sum up the year, and they cover different time windows. Over the
+summer season, **1 June to 30 September**, satellites mapped about
 **`r comma(round(season_ha, -3))` hectares** of burned land in Europe, across
 `r comma(season_n)` separate fire outlines. That is roughly
-`r round(season_ha / 10500)` times the area of the city of Paris, and about
-**`r if (is.na(pct_vs_med)) "n/a (too early in season)" else sprintf("%.0f%%", pct_vs_med)`** of what a typical recent season had
-burned by this date (`r if (is.na(median_ha)) "n/a" else comma(round(median_ha, -3))` hectares). But 2026 did
-not start in June. Counting from **1 January**, the total is already about
-**`r comma(round(full_ha, -3))` hectares**, and an unusually busy late winter
-and spring drove much of that gap, weeks before most people start watching
-for fire season at all. That early burst was this year's strangest thread for
-months; summer has since arrived in force and has now overtaken it, with the
-single worst week of the season landing in late July, and the calendar chart
-further down traces both. The chart right below sticks to the
-summer window, so that seasons are compared like for like; the maps after
-that show everything mapped in 2026 so far.
+`r round(season_ha / 10500)` times the area of the city of Paris (about
+105 km², or 10,500 hectares), and about
+**`r sprintf("%.0f%% more", pct_vs_med - 100)`** than a typical recent summer
+(`r comma(round(median_ha, -3))` hectares). But 2026 did not start in
+June. Counting from **1 January**, the total reaches about
+**`r comma(round(full_ha, -3))` hectares**, because late winter and spring
+had already burned `r comma(round(full_ha - season_ha, -3))` hectares before
+most people start watching for fire season at all. That spring was not
+unusual, though: it ranks `r ord_word(spring_rank)` of the last `r ytd_n` years. The chart right below sticks to the summer
+window, so that seasons are compared like for like; the maps after it show
+everything mapped in 2026.
 
-# Is this season bad so far?
+::: {.callout-tip title="The season in four lines"}
+- **Rank:** 2026 is `r rank_word` summer of the last `r n_seasons`
+  (2017 to 2026)`r if (length(beaten_by)) paste0(", behind only ", paste(beaten_by, collapse = " and ")) else ""`.
+- **Shape:** an average spring, a violent July, a long August, then
+  `r if (mo(9, "ratio") < 1) "a September quieter than usual" else "a September that stayed above normal"`.
+- **Where:** Spain carried the year, and
+  `r and_list(worst_ctry)` had `r if (length(worst_ctry) > 1) "their" else "its"`
+  worst summer of the last ten.
+- **How:** a few giant fires made most of the total, as they do every year.
+:::
+
+**About the data, in one line:** these are rapid satellite outlines from
+EFFIS, measured as burned *area* (never fire counts), and they will still move
+by a few percent before official figures come out. Hectares are the unit
+throughout; charts abbreviate thousands of hectares as **kha**.
+
+::: {.callout-note title="How the data works (click to expand)" collapse="true"}
+Satellites spot large fires, and Europe's EFFIS
+service (part of the Copernicus programme) draws the outline of each burned
+area it can map. I work with those outlines. I measure each fire's size
+directly from its shape, using a map projection that keeps areas honest, so
+hectares are comparable across countries. And I count only the parts that
+fall inside Europe. The method is the same as in the [2025 season
+analysis](2025.qmd) this project grew out of; that
+post remains the reference for the details.
+
+- **Most mapped fires are small, not big.** EFFIS once caught mainly fires of
+  roughly 30 hectares and up, but sharper Sentinel-2 imagery now maps far
+  smaller ones too, so most outlines on this page are in fact well under 30
+  hectares. The very smallest fires are still missed, so totals stay below
+  official statistics.
+- **The outlines are rapid estimates.** They are revised as better satellite
+  imagery arrives, even after the season ends. The totals below are final for
+  this page, but they are not official statistics: expect EFFIS's consolidated
+  figures, published later, to differ by a few percent.
+- **Dates are fire dates.** Every date on this page is the day EFFIS records
+  a fire as starting. The outline itself usually appears in the database about
+  six days later, and for one fire in ten, three weeks or more later.
+- **I compare burned area, not fire counts.** The detection system changed in
+  2023 to 2024 and suddenly saw many more small fires. Counting fires across
+  years is therefore misleading; measuring area is much safer.
+:::
+
+# How bad was 2026?
 
 ```{r}
 #| label: envelope
-#| fig-width: 9.5
-#| fig-height: 5.5
+#| fig-width: 8
+#| fig-height: 6.5
 #| fig-cap: !expr cap_envelope
 
 plot_envelope(envelope)
 ```
 
-Read this like a race against the past. The grey band is the space between
-the calmest and the most severe of the last nine seasons, day by day. The
-dashed line is the middle of the pack. The orange line is 2026, and it stops
-where the data stops, on `r as_of_lab`. Thirteen weeks in, 2026 is
-`r if (is.na(pct_vs_med)) "not yet comparable to the median (too early in the season for a meaningful ratio)" else sprintf("running above the median (about %.1f times it)", pct_vs_med / 100)` and sits
-high in the band: of the last nine seasons, only 2025 was further along at this
-date.
+Read this like a race against the past. Each thin grey line is one of the
+last nine seasons, day by day; the grey band holds the middle half of them,
+and the dashed line is the middle of the pack. The orange line is 2026, and it
+now runs the full course, to `r as_of_lab`. The bars underneath show how much
+burned each week, which is where the pace of the season is easiest to see. It
+finishes about
+`r sprintf("%.0f%%", pct_vs_med - 100)` above the median and high in the band:
+`r rank_word` of the last `r n_seasons` summers`r if (length(beaten_by)) paste0(", with only ", paste(beaten_by, collapse = " and "), " ahead of it") else ""`.
+For scale, the calmest of those summers burned about
+`r comma(round(calmest_ha, -3))` hectares over the same window, roughly
+`r round(season_ha / calmest_ha)` times less.
 
-That is a milder verdict than this page carried in late July, and the reason is
-worth pausing on, because it is easy to misread as good news. On 26 July, 2026
-was running at close to four times a typical season. It did not ease off for
-a long while: it has burned roughly 8,000 hectares a day since then, against
-about 6,000 a day earlier in the summer. What changed is the yardstick,
-not the fire. August is when an ordinary European season does much of its own
-burning, so the median line climbed steeply and closed most of the gap. My
-honest reading is *clearly elevated, second only to 2025, and no longer the
-lonely outlier it looked like in July*. Most of a European fire season happens
-in July and August. September has only just begun, and I will not call a
-season in week thirteen.
+The more interesting story is the shape of the line, because the verdict this
+page gave changed a lot over the summer. Here is the season month by month,
+each against the typical (median) amount for that same month in 2017 to 2025:
 
-Something has changed since the middle of August, and it needs a careful
-reading. The daily pace has fallen: about 3,200 hectares a day over the last
-two weeks, and closer to 2,100 over the last one, against more than 8,000 a
-day averaged since 26 July. That looks like a season running out of steam,
-and part of it genuinely is. But part of it is an artifact of how this data
-arrives, and it would be easy to over-read.
+| Month | 2026 burned | Typical month | 2026 vs typical |
+|:--|--:|--:|--:|
+| June | `r comma(round(mo(6, "ha"), -3))` ha | `r comma(round(mo(6, "med_ha"), -3))` ha | `r sprintf("%.1f×", mo(6, "ratio"))` |
+| July | `r comma(round(mo(7, "ha"), -3))` ha | `r comma(round(mo(7, "med_ha"), -3))` ha | `r sprintf("%.1f×", mo(7, "ratio"))` |
+| August | `r comma(round(mo(8, "ha"), -3))` ha | `r comma(round(mo(8, "med_ha"), -3))` ha | `r sprintf("%.1f×", mo(8, "ratio"))` |
+| September | `r comma(round(mo(9, "ha"), -3))` ha | `r comma(round(mo(9, "med_ha"), -3))` ha | `r sprintf("%.1f×", mo(9, "ratio"))` |
 
-::: {.callout-note title="Why the last few days always look quiet"}
+: Burned area by month, 2026 against the median of the same month over
+2017–2025 (Europe-clipped, EFFIS rapid perimeters, snapshot `r basename(snap)`).
+{#tbl-months}
+
+July is where 2026 broke away. By 26 July it was running at close to four
+times a typical season, and this page called it a lonely outlier. August
+then burned heavily too, but August is also when an ordinary European season
+does much of its own burning, so the median line climbed steeply and closed
+part of the gap. That is why the multiple shrank over the summer even though
+the fire never really let up: the yardstick moved, not the fire. September
+`r if (mo(9, "ratio") < 1) "finally brought the slowdown that the late-August numbers hinted at, and the line flattened into the finish" else "did not bring the usual slowdown, and the line kept climbing into the finish"`.
+
+The biggest single day of the summer,
+`r paste(day(top_days$ba_date[1]), month.name[month(top_days$ba_date[1])])`,
+added about `r comma(round(top_days$area_ha[1], -3))` hectares, when very large
+fires broke out in Ávila and in the Gironde within hours of each other. In
+late July that one day accounted for most of the distance between 2026 and an
+ordinary year. By the end of September it was only about
+`r sprintf("%.0f%%", 100 * top_days$area_ha[1] / gap_ha)` of that gap: 2026
+was not one catastrophic day, it was a summer that kept producing large fires.
+
+### Counting the whole year
+
+The summer window keeps seasons comparable, but fire does not read calendars.
+The chart below counts everything from 1 January to 30 September, with each
+year split into its spring (lighter) and its summer (darker).
+
+```{r}
+#| label: ytd-ranking
+#| fig-width: 9.5
+#| fig-height: 6
+#| fig-cap: !expr cap_ytd
+
+plot_ytd_ranking(ytd, YEAR_CURRENT)
+```
+
+```{r}
+#| label: ytd-tie
+# Gap to the year just ahead of 2026, as a share of 2026's own total: below
+# the ~5% a month of late mapping measured above, the order is not settled.
+ytd_tot <- ytd_total_rank |> arrange(desc(total_ha))
+next_up <- ytd_tot[ytd_tot$r == ytd_rank - 1L, ]
+tie_pct <- if (nrow(next_up)) 100 * (next_up$total_ha - ytd_tot$total_ha[ytd_tot$year == YEAR_CURRENT]) / ytd_tot$total_ha[ytd_tot$year == YEAR_CURRENT] else NA_real_
+```
+
+Counted this way, 2026 is `r ord_word(ytd_rank)` of the last `r ytd_n` years
+`r if (length(ytd_ahead)) paste0("(behind ", and_list(ytd_ahead), ")") else ""`.
+`r if (!is.na(tie_pct) && tie_pct < 2) sprintf("But the gap to %d is only about %s hectares, %.1f%% of 2026's total, well within the late mapping described below: call it a dead heat, and do not be surprised if 2026 ends up ahead of %d once EFFIS publishes consolidated figures.", next_up$year, comma(round(next_up$total_ha - ytd_tot$total_ha[ytd_tot$year == YEAR_CURRENT], -2)), tie_pct, next_up$year) else ""`
+The bars also show how differently seasons are built: 2020 and 2019 did much
+of their burning before June, while 2026, like 2017 and 2025, was made in
+summer.
+
+::: {.callout-note title="How final is \"final\"?"}
 EFFIS maps fires as usable satellite imagery arrives, so the most recent days
-are the least complete and keep filling in afterwards. That is measurable
-rather than hypothetical. The previous snapshot, taken on 25 August, reported
-about 619,000 hectares burned between 1 June and 24 August. This week's
-snapshot, looking at those very same dates, reports about 647,000: roughly
-27,000 hectares, or 4%, showed up after the fact. So read the end of the
-orange line as a floor that will
-rise, not as a finished measurement. The quiet last week on this page will look
-busier on next week's.
+are the least complete and keep filling in afterwards. This is measurable.
+The early-September edition of this page, built from the 3 September
+snapshot, reported about 669,000 hectares burned between 1 June and 2 September.
+This final snapshot, looking at those very same dates, reports about 702,000:
+roughly 33,000 hectares, or 5%, showed up a month after the fact. So the last days of September on this page are still a floor, not
+a finished measurement, and the whole-season total will most likely creep up
+by a few percent before EFFIS publishes consolidated figures. That is far too
+small to change the summer ranking above, though it could reorder the
+whole-year race with 2022.
 :::
 
-### The same season, played back
+The chart below splits everything the last month of mapping added, matching
+each EFFIS fire outline by its identifier between the two snapshots. "Added
+since the last update" is not the same as "burned since the last update".
 
-The chart above compresses thirteen weeks into one frame, which is exactly what
-makes a step in the line easy to read past. So here is the same data at its own
-pace: the map and the line locked to one clock, one frame per day. A fire
-flares bright on the day it is mapped, glows for two more, then settles to a
-scar, and the ring around it is sized by area, so a megafire announces itself
-rather than becoming one pixel among thousands. The animation holds for a beat
-on the three biggest days.
+```{r}
+#| label: mapping-additions-data
 
-Watch 22 July. Two rings open almost together, one over the Gironde and one
-over Ávila: about 42,000 hectares in Spain and 37,000 in France on the same
-day. The line jumps by roughly 87,000 hectares in one step, and the readout
-above it climbs to more than six times a typical season. Then watch 6 August,
-much further southwest, when a single fire in Huelva adds about 44,000 more.
+# Compares the 3 September snapshot with the final one. Re-rendering this page
+# needs DATA/snapshots/2026-09-03 on disk (or its cached clip in DATA/cache).
+mapping <- build_mapping_additions(file.path("DATA", "snapshots", "2026-09-03"), snap, eu)
+mt <- setNames(mapping$table$ha, c("old", "new_dates", "late", "revised", "removed", "final"))
+cap_mapping <- sprintf(paste(
+  "The final month of mapping added about %s ha to the summer total, %.0f%% of it",
+  "from fires dated after 2 September. Mapped burned area, 1 June to 30 September",
+  "2026, from the 3 September snapshot to the final one, split by EFFIS perimeter",
+  "identifier: new outlines dated after 2 September, new outlines dated earlier",
+  "(late additions), area changes to outlines present in both snapshots, and",
+  "outlines withdrawn. Source: EFFIS rapid perimeters, snapshots 2026-09-03 and",
+  "%s; areas from geometry in EPSG:3035, Europe-clipped."
+), comma(round(mt["final"] - mt["old"], -3)),
+   100 * mt["new_dates"] / (mt["final"] - mt["old"]), basename(snap))
+```
 
-Those two days are worth comparing, because they show the season changing
-character. In late July, 22 July alone accounted for most of the distance
-between 2026 and an ordinary year. It no longer does: the burning has kept
-coming since, and that one day is now less than a third of the gap.
+```{r}
+#| label: mapping-additions
+#| fig-width: 8
+#| fig-height: 4.5
+#| fig-cap: !expr cap_mapping
 
-::: {#fig-race}
-![](/assets/anim/2026-race.gif){fig-alt="Two-panel animation: a map of Europe accumulating wildfire perimeters day by day beside the cumulative burned-area chart drawing itself against the 2017-2025 range."}
+plot_mapping_waterfall(mapping$table)
+```
 
-The 2026 season played back day by day, 1 June to `r as_of_lab`. Left: mapped
-perimeters accumulating, coloured by age (bright on the day of mapping, then
-fading to a muted scar); dot and ring radius scale with the square root of
-burned area, so marker size is proportional to area. Right: the same cumulative
-burned-area chart as above, drawn to the same date, against the 2017-2025
-min-max band (grey) and median (dashed). The header reports the running total
-as a percentage of the historical median for that calendar date. Playback holds
-on the three largest burn days, which are annotated with the fires that drove
-them (any fire contributing at least 10% of that day's area). The map viewport
-is framed on the 1st-99th percentile of fire locations, so a few outlying
-Nordic and Irish fires sit near or just beyond the edge. Source: EFFIS rapid
-perimeters, snapshot `r basename(snap)`; geometry in EPSG:3035.
-:::
+Most of the month's
+`r comma(round(mt["final"] - mt["old"], -3))` extra hectares are genuinely new
+burning, dated after 2 September. But about
+`r comma(round(mt["late"], -3))` hectares are whole fires that had already
+burned by then and were simply mapped late, and another
+`r comma(round(mt["revised"], -3))` came from existing outlines being redrawn
+larger. That is why the last weeks of any chart on this page are a floor.
 
-## Does Europe only burn in summer?
+# Does Europe only burn in summer?
 
-Not entirely, and 2026 makes the exception hard to miss. The chart below
+Mostly, and 2026 was no exception. The chart below
 stacks eleven years, calendar week by calendar week, so a season's full
 rhythm is visible at once.
 
 ```{r}
 #| label: calendar-heatmap
 #| fig-width: 9.5
-#| fig-height: 5.5
+#| fig-height: 6.3
 #| fig-cap: !expr cap_calendar
 
 weekly_area <- build_weekly_area(
@@ -353,16 +509,18 @@ peak_2026_lab  <- paste(day(peak_2026_date), month.abb[month(peak_2026_date)])
 ```
 
 Two patterns jump out. First, most years share the same silhouette: a dark
-block across July and August and comparatively little else. Second, 2026's
-own row stands out twice over: a bright stretch of late-winter and
-early-spring weeks that most other years do not show at this intensity, and
-then the familiar summer block arriving on top of it. The winter stretch is
-the unusually busy January-to-May window from the introduction. The single
-busiest week of 2026 so far, though, is a summer one, the week of
-`r peak_2026_lab`, when about `r lab_si_ha(peak_2026$area_ha)` burned in that
-single week alone, now outpacing even that winter surge. The grey band
-on the right marks weeks that have not happened yet: the row simply stops
-there, rather than being padded with zeros.
+block across July and August and comparatively little else. Second, the
+exceptions are spring flare-ups, and they are not unique to 2026: several
+years show bright weeks between February and April, often from fires set to
+clear pasture and scrub before the growing season. 2026's spring is one of
+them, but `r if (length(spring_ahead)) and_list(spring_ahead) else "no other year"`
+burned more between January and May. Through much of the summer this page
+called that spring unusual; with the full archive side by side, it sits in the
+middle of the pack. The single busiest week of 2026 was a summer one, the
+week of `r peak_2026_lab`, when about `r lab_si_ha(peak_2026$area_ha)` burned
+in that single week alone. The grey
+band on the right marks the autumn weeks after this final snapshot: the row
+simply stops there, rather than being padded with zeros.
 
 ::: {.callout-note title="Reading this chart honestly"}
 - The fill is burned **area**, not fire counts. The detection system changed
@@ -377,165 +535,339 @@ there, rather than being padded with zeros.
 
 # Where did it burn?
 
-With the timing question answered, the next one is geographic: where, across
+With the timing settled, the next question is geographic: where, across
 the continent, did all of this actually happen?
 
 ```{r}
 #| label: hero
-#| fig-width: 9
+#| fig-width: 11
 #| fig-height: 7.5
 #| fig-cap: !expr cap_hero
 
-p_base <- ggplot() +
-  geom_sf(data = eu$poly, fill = "grey95", color = "grey70", linewidth = 0.15) +
-  coord_sf()
-
-p_base +
-  geom_sf(
-    data = tagged_2026_full,
-    fill = NA, color = "#D64A05", linewidth = 0.25, alpha = 0.8
-  ) +
-  theme_burns(base_size = 11, map = TRUE)
+plot_overview_map(tagged_2026_full, eu)
 ```
 
-```{r}
-#| label: facet-period
-#| fig-width: 9.5
-#| fig-height: 5
-#| fig-cap: !expr cap_facet
-
-tagged_2026_full <- tagged_2026_full |>
-  mutate(period = factor(
-    if_else(ba_date < as.Date(sprintf("%d-06-01", YEAR_CURRENT)),
-            "January–May", paste("1 June –", as_of_lab)),
-    levels = c("January–May", paste("1 June –", as_of_lab))
-  ))
-
-period_stats <- tagged_2026_full |>
-  st_drop_geometry() |>
-  group_by(period) |>
-  summarise(n_fires = n(), burned_ha = sum(area_ha, na.rm = TRUE), .groups = "drop") |>
-  mutate(lab = paste0("Fires: ", comma(n_fires), "\nArea: ", lab_si_ha(burned_ha)))
-
-bb <- st_bbox(eu$poly)
-period_stats <- period_stats |>
-  mutate(
-    x = bb["xmin"] + 0.03 * (bb["xmax"] - bb["xmin"]),
-    y = bb["ymax"] - 0.03 * (bb["ymax"] - bb["ymin"])
-  )
-
-p_base +
-  geom_sf(
-    data = tagged_2026_full,
-    fill = "#D64A05", alpha = 0.4, color = "#D64A05", linewidth = 0.08
-  ) +
-  facet_wrap(~ period, ncol = 2) +
-  geom_label(
-    data = period_stats, aes(x = x, y = y, label = lab), inherit.aes = FALSE,
-    size = 3.1, label.size = 0, hjust = 0, vjust = 1,
-    fill = alpha("white", 0.85), colour = "grey20"
-  ) +
-  theme_burns(base_size = 11, map = TRUE) +
-  theme(strip.text = element_text(face = "bold"))
-```
-
-The map makes two things obvious: first, the familiar geography is already
-in place: the Iberian Peninsula and the Mediterranean arc dominate the map.
-Second, here is that winter surge again, now on the map: about
+At this scale most fire outlines would be specks, so each fire is drawn as a
+circle whose *area* matches the area it burned. The map makes two things
+obvious. First, the familiar geography: the Iberian Peninsula and the
+Mediterranean arc dominate, and every one of the ten largest fires sits in
+Iberia, south-west France or the western Balkans (the two zoomed panels).
+Second, the blue circles are the spring burning: about
 `r comma(round(full_ha - season_ha, -3))` of the
 `r comma(round(full_ha, -3))` hectares were mapped between January and May,
-visible in the left panel above. Keep that in mind when reading the summer
-chart at the top: it deliberately leaves those months out.
+much of it in small fires across northern Spain and the Balkans. Keep that in
+mind when reading the summer chart at the top: it deliberately leaves those
+months out.
 
-## Explore the fires yourself
+Want to find a particular fire? The
+**[interactive explorer](2026-explorer.qmd)** shows every 2026 outline on a map
+you can pan and zoom, with its date, size, country and the vegetation it
+burned.
 
-```{r}
-#| label: leaflet-data
+# Which countries were hit hardest?
 
-# Computed here, ahead of the prose below, so the sliver-drop share it quotes
-# is a real inline value rather than an asserted "about 1%". The cache key
-# does not need the snapshot identifier: it already includes asof<date>, and
-# tagged_2026_full (its only input) is itself built from a snapshot-aware key
-# upstream in get_tagged_window().
-leaflet_result <- cached(sprintf("leaflet_2026_asof%s", format(as_of, "%Y%m%d")), {
-  x <- tagged_2026_full |>
-    mutate(across(all_of(lc_cols), to_num))
-
-  lc_mat <- as.matrix(st_drop_geometry(x)[, lc_cols])
-  lc_mat[is.na(lc_mat)] <- 0
-  dom <- lc_labels[lc_cols[max.col(lc_mat, ties.method = "first")]]
-  dom[rowSums(lc_mat) <= 0] <- "n/a"
-  x$dominant_lc <- unname(dom)
-
-  total_ha_before <- sum(x$area_ha, na.rm = TRUE)
-
-  x <- x |>
-    st_simplify(dTolerance = 100) |>       # ~100 m in EPSG:3035 (metric)
-    filter(!st_is_empty(geometry))
-
-  # leaflet only draws polygonal geometry: split GEOMETRYCOLLECTION rows
-  # (simplify/clip byproducts) into their polygon parts, drop line slivers,
-  # and cast everything to MULTIPOLYGON.
-  types <- st_geometry_type(x)
-  x_poly <- x[types %in% c("POLYGON", "MULTIPOLYGON"), ]
-  x_gc   <- x[types == "GEOMETRYCOLLECTION", ]
-  if (nrow(x_gc) > 0L) {
-    x_poly <- rbind(x_poly, suppressWarnings(st_collection_extract(x_gc, "POLYGON")))
-  }
-  x_poly <- x_poly |>
-    filter(!st_is_empty(geometry)) |>
-    st_cast("MULTIPOLYGON") |>
-    st_transform(4326)
-
-  # Sliver-drop share quoted in prose: the area held by rows that degenerated
-  # into pure lines/points (or emptied out entirely) after simplification,
-  # and so never make it into x_poly, as a share of the pre-simplification
-  # total -- NOT the much smaller boundary shrinkage of polygons that ARE
-  # retained.
-  retained_ha <- sum(x_poly$area_ha, na.rm = TRUE)
-  sliver_pct <- 100 * (total_ha_before - retained_ha) / total_ha_before
-
-  list(sf = x_poly, sliver_pct = sliver_pct)
-}, version = 3)
-
-leaf_sf <- leaflet_result$sf
-sliver_pct_lab <- sprintf("%.1f%%", leaflet_result$sliver_pct)
-```
-
-Every 2026 fire, on a map you can pan and zoom. Click an outline for its
-date, size, country, and the vegetation that dominated the ground it burned.
-I simplified the shapes slightly (about 100 m of tolerance) to keep the page
-fast; the tiniest border slivers, about `r sliver_pct_lab` of the total area,
-drop out in the process. For survey-grade outlines, use the official EFFIS
-viewer.
+Individual fires are dramatic on their own; country totals show where the
+season landed hardest overall.
 
 ```{r}
-#| label: leaflet
+#| label: countries
+#| fig-width: 12
+#| fig-height: 5.5
+#| fig-cap: !expr cap_countries
 
-pal_period <- c("#3E8EC4", "#D64A05")  # winter-spring blue vs summer orange-red
-leaflet(leaf_sf) |>
-  addProviderTiles("CartoDB.Positron") |>
-  addPolygons(
-    weight = 0.7,
-    color = ~if_else(period == "January–May", pal_period[1], pal_period[2]),
-    fillColor = ~if_else(period == "January–May", pal_period[1], pal_period[2]),
-    fillOpacity = 0.35,
-    popup = ~sprintf(
-      "<b>%s</b><br/>Date: %s<br/>Mapped area: %s ha<br/>Dominant land cover: %s",
-      name_long, format(ba_date, "%Y-%m-%d"), comma(round(area_ha)), dominant_lc
-    )
-  ) |>
-  addLegend(
-    position = "bottomleft", colors = pal_period,
-    labels = c("January–May", paste("1 June –", as_of_lab)),
-    title = "2026 perimeters", opacity = 0.7
+ctry_2026 <- tagged_2026_full |>
+  st_drop_geometry() |>
+  group_by(name_long) |>
+  summarise(burned_ha = sum(area_ha, na.rm = TRUE), n_fires = n(), .groups = "drop") |>
+  left_join(country_land_area(eu), by = "name_long") |>
+  mutate(pct_land = 100 * burned_ha / land_area_ha)
+
+top10 <- ctry_2026 |>
+  slice_max(burned_ha, n = 10)
+
+flags <- flag_table(top10$name_long, eu$poly)
+top10 <- top10 |>
+  left_join(flags, by = "name_long") |>
+  # factor AFTER the join: joining a factor to a character column silently
+  # coerces name_long back to character, which would both scramble the bar
+  # order (alphabetical) and break the numeric y positions for the flags
+  mutate(name_long = fct_reorder(name_long, burned_ha))
+
+max_x <- max(top10$burned_ha)
+
+# Flag PNGs drawn with base annotation_raster() (no extra image package
+# needed): one raster layer per country, placed just right of its bar.
+# Discrete y positions are the factor level codes (1..10).
+flag_df <- top10 |>
+  filter(!is.na(flag_path)) |>
+  mutate(y_pos = as.integer(name_long))
+flag_layers <- lapply(seq_len(nrow(flag_df)), function(i) {
+  x0 <- flag_df$burned_ha[i] + 0.05 * max_x
+  annotation_raster(
+    png::readPNG(flag_df$flag_path[i]),
+    xmin = x0, xmax = x0 + 0.08 * max_x,
+    ymin = flag_df$y_pos[i] - 0.28, ymax = flag_df$y_pos[i] + 0.28
   )
+})
+
+p_raw <- ggplot(top10, aes(x = burned_ha, y = name_long)) +
+  geom_col(fill = "grey90") +
+  geom_point(aes(color = col), size = 3) +
+  scale_color_identity() +
+  flag_layers +
+  # direct value labels, placed just past each flag
+  geom_text(aes(x = burned_ha + 0.15 * max_x,
+                label = paste(comma(round(burned_ha / 1000)), "kha")),
+            hjust = 0, size = 3.6, colour = "grey20") +
+  scale_x_continuous(labels = lab_si_ha, expand = expansion(mult = c(0, 0.36))) +
+  labs(x = "Burned area (ha)", y = NULL) +
+  theme_burns(base_size = 12) +
+  coord_cartesian(clip = "off")
+
+p_pct <- ggplot(top10, aes(x = pct_land, y = name_long)) +
+  geom_segment(aes(x = 0, xend = pct_land, yend = name_long, color = col),
+               linewidth = 1.1, show.legend = FALSE) +
+  geom_point(aes(color = col), size = 3.2) +
+  geom_text(aes(label = sprintf("%.2f%%", pct_land)),
+            hjust = -0.35, size = 3.6, colour = "grey20") +
+  scale_color_identity() +
+  scale_x_continuous(labels = label_percent(scale = 1),
+                     expand = expansion(mult = c(0, 0.22))) +
+  labs(x = "Share of national land area", y = NULL) +
+  theme_burns(base_size = 12) +
+  theme(axis.text.y = element_blank())
+
+# plot_spacer() inserts a gap column between the two panels so the left
+# panel's rightmost x-axis label (e.g. "150 kha") and its flags do not collide
+# with the right panel's leftmost label ("0.0%").
+p_raw + plot_spacer() + p_pct +
+  plot_layout(widths = c(3, 0.25, 2))
 ```
+
+`r top10$name_long[which.max(top10$burned_ha)]` leads the raw ranking with
+about **`r comma(round(max(top10$burned_ha), -3))` hectares** for the year. But raw
+hectares flatter big countries. The right panel asks a fairer question: how
+much of the country's *own* land has burned? Small countries can be hit much
+harder relative to their size, and that is where the order reshuffles.
+
+Raw hectares, even divided by land area, still compare countries with each
+other. The fairer question for a final verdict is how each country did against
+**its own** past: a summer that is ordinary for Spain would be a catastrophe
+for Belgium. The chart below puts each country's 2026 summer (orange dot) on
+top of the range of its previous nine summers (grey bar), with the typical
+summer marked by a tick.
+
+```{r}
+#| label: country-vs-history
+#| fig-width: 9.5
+#| fig-height: 6.5
+#| fig-cap: !expr cap_ctry_hist
+
+plot_country_vs_history(ctry_hist, YEAR_CURRENT)
+```
+
+The horizontal axis is logarithmic again, so each gridline is ten times the
+one before. Measured against itself,
+**`r and_list(worst_ctry)`** had `r if (length(worst_ctry) > 1) "their" else "its"`
+worst summer of the last ten`r if (length(second_ctry)) paste0(", and ", and_list(second_ctry), " ", if (length(second_ctry) > 1) "their" else "its", " second-worst") else ""`.
+The dots sitting at the right end of their bars are the real story of 2026:
+the season was severe across a wide band of the continent, from the Atlantic
+to the Balkans, not only in the usual Mediterranean hotspots. At the other
+end, `r and_list(below_ctry)` finished below `r if (length(below_ctry) > 1) "their" else "its"`
+own typical summer.
+
+Did the fire move, then? Not measurably. Half of 2026's summer burned area lay
+south of `r sprintf("%.1f", loc_cur$med_lat)`°N, inside the range of the
+previous nine summers (`r sprintf("%.1f", min(loc_hist$med_lat))` to
+`r sprintf("%.1f", max(loc_hist$med_lat))`°N), and the same holds east to
+west. Severe years differ in *where in the Mediterranean* they burn, not yet in
+a visible march north: one season is far too few to see a slow shift like
+that.
+
+
+# France and Spain, each against its own past
+
+Two countries carried most of 2026, and it is worth seeing each on its own
+terms, against its own recent history rather than Europe's. The two charts below
+repeat the race-against-the-past idea from the top of the page, once for France
+and once for Spain: the thin grey lines and band are that country's own 2017
+to 2025 seasons, and the orange line is 2026.
+
+```{r}
+#| label: france-spain-numbers
+
+fs_df <- tagged_2026_full |> st_drop_geometry()
+
+# Gironde (the departement around Bordeaux)
+gir     <- fs_df |> dplyr::filter(!is.na(province), province == "Gironde")
+gir_big <- gir |> dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
+
+# Provinces ringing Madrid (Sierra de Gredos / Guadarrama). "vila$" matches
+# "Avila" without depending on the accent byte encoding of the province field.
+madrid_ring <- fs_df |> dplyr::filter(
+  !is.na(province), grepl("vila$|Guadalajara|^Madrid$|Segovia", province)
+)
+madrid_ring_ha <- sum(madrid_ring$area_ha, na.rm = TRUE)
+navaluenga <- fs_df |> dplyr::filter(grepl("Navaluenga", dplyr::coalesce(commune, ""))) |>
+  dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
+
+# Largest fire inside the Comunidad de Madrid itself. Selected by PROVINCE, not
+# by commune name: EFFIS re-attributes communes between snapshots as perimeters
+# are refined (the 2026-07-23 fire was mapped under San Martin de Valdeiglesias
+# in the 26 July snapshot and under Navas del Rey in the 20 August one), which
+# silently collapsed a commune-name filter to a 35 ha fire and rounded the
+# prose figure to "0 hectares". Province is the stable unit here.
+madrid_big <- fs_df |> dplyr::filter(!is.na(province), province == "Madrid") |>
+  dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
+
+# Season-wide largest fire, so the prose never hardcodes which fire leads.
+biggest_fire <- fs_df |> dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
+
+# English date labels, locale-proof (see as_of_lab in the setup chunk)
+date_lab <- function(d) paste(lubridate::day(d), month.name[lubridate::month(d)])
+
+# Where 2026 finishes within a country envelope's own 2017-2025 history, read
+# at the same day index (same logic as the Europe-wide verdict in setup).
+env_rank <- function(env) {
+  h <- env$hist_daily |> dplyr::filter(day_idx == env$meta$as_of_day_idx)
+  ahead <- sort(h$year[h$cum_ha > env$meta$current_cum_ha])
+  list(rank = 1L + length(ahead), ahead = ahead,
+       ha = env$meta$current_cum_ha, ratio = env$meta$pct_vs_median / 100)
+}
+ahead_lab <- function(r) {
+  if (r$rank == 1L) "the worst summer in its 2017 to 2026 record"
+  else sprintf("behind only %s in its 2017 to 2026 record", paste(r$ahead, collapse = " and "))
+}
+
+cap_env_fr <- sprintf(paste(
+  "Cumulative burned area in France since 1 June: the full 2026 season against",
+  "France's own 2017-2025 seasons (thin grey lines; band: middle half of those",
+  "seasons; dashed line: their median), with 2026's weekly burned area",
+  "underneath. The shaded last 14 days are still being mapped. The 2026 line",
+  "stops at its last mapped perimeter (%s). Source: EFFIS rapid perimeters,",
+  "Europe-clipped, countries tagged by maximum overlap."
+), as_of_lab)
+cap_env_es <- sprintf(paste(
+  "Cumulative burned area in Spain since 1 June: the full 2026 season against",
+  "Spain's own 2017-2025 seasons (thin grey lines; band: middle half of those",
+  "seasons; dashed line: their median), with 2026's weekly burned area",
+  "underneath. The shaded last 14 days are still being mapped. The 2026 line",
+  "stops at its last mapped perimeter (%s). Source: EFFIS rapid perimeters,",
+  "Europe-clipped, countries tagged by maximum overlap."
+), as_of_lab)
+```
+
+```{r}
+#| label: envelope-france
+#| fig-width: 8
+#| fig-height: 6.5
+#| fig-cap: !expr cap_env_fr
+
+env_fr <- build_envelope(
+  HIST_YEARS, YEAR_CURRENT, snap, eu,
+  SEASON_START_MONTH, SEASON_END_MONTH, as_of_date = as_of, country = "France"
+)
+plot_envelope(env_fr, note = FALSE)
+```
+
+```{r}
+#| label: france-rank
+fr_r <- env_rank(env_fr)
+```
+
+France's summer finished at about
+**`r comma(round(fr_r$ha, -3))` hectares**, `r sprintf("%.1f", fr_r$ratio)`
+times its own typical summer and `r ahead_lab(fr_r)`. A single fire is about
+half of that, and it is close to home for me. As a French reader I have
+followed this Atlantic coast for years, and for the first seven weeks of the
+season the Gironde, the département around Bordeaux, had not recorded a single
+mapped fire. Then, on `r date_lab(gir_big$ba_date)`, the Médoc pine forest at Le
+Porge burned: about **`r comma(round(gir_big$area_ha, -3))` hectares** in one
+fire, more than the whole of Gironde's catastrophic 2022 season put together. A
+burn that size on that coast is not something I can look past: it is the fire
+I will remember 2026 for.
+
+```{r}
+#| label: envelope-spain
+#| fig-width: 8
+#| fig-height: 6.5
+#| fig-cap: !expr cap_env_es
+
+env_es <- build_envelope(
+  HIST_YEARS, YEAR_CURRENT, snap, eu,
+  SEASON_START_MONTH, SEASON_END_MONTH, as_of_date = as_of, country = "Spain"
+)
+plot_envelope(env_es, note = FALSE)
+```
+
+```{r}
+#| label: spain-rank
+es_r <- env_rank(env_es)
+```
+
+Spain is the heavier story. Its summer finished at about
+**`r comma(round(es_r$ha, -3))` hectares**, `r sprintf("%.1f", es_r$ratio)`
+times its own typical summer and `r ahead_lab(es_r)`, and it came in two
+separate surges rather than one. The first sits in
+the mountains ringing Madrid: the Sierra de Gredos and the ranges north of the
+capital. About **`r comma(round(navaluenga$area_ha, -3))` hectares** burned at
+Navaluenga in Ávila on `r date_lab(navaluenga$ba_date)`, and
+`r madrid_big$commune`, inside the Comunidad de Madrid itself, added about
+`r comma(round(madrid_big$area_ha, -3))` hectares the next day. Taken together,
+the provinces around Madrid account for roughly
+`r comma(round(madrid_ring_ha, -3))` hectares this year.
+
+The second surge came in August, and it moved the record. The largest single
+fire of the 2026 season was not in the Madrid ring at all: about
+**`r comma(round(biggest_fire$area_ha, -3))` hectares** at
+`r biggest_fire$commune` in `r biggest_fire$province`, mapped on
+`r date_lab(biggest_fire$ba_date)`, in the Atlantic southwest of Andalusia
+rather than the central mountains. Aragón followed four days later, with
+another large fire in the Huesca pre-Pyrenees. Spain's 2026 burning did not
+stay in one place, and no single region explains its total.
 
 # How big is a fire, really?
 
 Here is the surprise hiding inside every map above: most of these fires are
-small. The chart below splits the 2026 fires two ways on the same size axis.
+small, and yet a handful of them make the season. The curve below ranks the
+summer's fires from largest to smallest and asks how much of the burned area
+the biggest ones hold.
+
+```{r}
+#| label: concentration-data
+
+conc <- build_concentration(YEAR_CURRENT, snap, eu)
+top1  <- top_share(conc, 0.01)
+top10 <- top_share(conc, 0.10)
+n_top1 <- ceiling(0.01 * conc$n_fires[1])
+cap_conc <- sprintf(paste(
+  "A few big fires carried the 2026 season: the largest 1%% of fires hold %.0f%%",
+  "of burned area and the largest 10%% hold %.0f%%. Cumulative share of burned",
+  "area held by the largest fires, 1 June to 30 September 2026, fires ranked",
+  "largest first on a log axis. Not compared across years: the number of small",
+  "fires mapped jumped with the 2023-2024 detection change, which alone would",
+  "make recent years look more concentrated. Source: EFFIS rapid perimeters,",
+  "snapshot %s; areas from geometry in EPSG:3035, Europe-clipped."
+), 100 * top1, 100 * top10, basename(snap))
+```
+
+```{r}
+#| label: concentration
+#| fig-width: 7.5
+#| fig-height: 5
+#| fig-cap: !expr cap_conc
+
+plot_concentration(conc, YEAR_CURRENT)
+```
+
+Of `r comma(conc$n_fires[1])` summer fires, the largest
+`r n_top1` (1% of them) hold
+**`r sprintf("%.0f%%", 100 * top1)`** of all the area that burned, and the
+largest 10% hold `r sprintf("%.0f%%", 100 * top10)`. The rest, thousands of
+fires, share what is left. The next chart shows the same thing from the other
+side, by size.
+
+The chart below splits the 2026 fires two ways on the same size axis.
 That axis is logarithmic, so each step to the right multiplies the size
 tenfold rather than adding a fixed amount, which is the only way to show fires
 of two hectares and fires of thirty thousand on one line.
@@ -588,8 +920,7 @@ that the next section puts under the microscope.
 
 # What does a giant fire actually look like?
 
-Scrolling through that map, numbers like "seven thousand hectares" are hard
-to picture on their own. Below are the ten largest 2026 fires so far, each
+Numbers like "forty thousand hectares" are hard to picture on their own. Below are the ten largest fires of 2026, each
 drawn at the exact same scale, so size differences are visible rather than
 just stated. A single grey circle, equal in area to the city of Paris, sits
 alongside them for reference.
@@ -614,9 +945,11 @@ cap_gallery <- sprintf(
     "relative size is directly comparable; fill shows each fire's dominant",
     "land-cover class. The grey circle is not a fire: it is a circle of equal",
     "area to Paris intra-muros (about 105 km2, 10,500 ha), drawn for scale",
-    "rather than traced from an official city boundary. Communes and country",
-    "codes from EFFIS attributes; rapid perimeters are provisional and",
-    "subject to revision. Source: EFFIS rapid perimeters, snapshot %s."
+    "rather than traced from an official city boundary. Place names are EFFIS",
+    "communes, or the province or country when EFFIS gives no commune; rapid",
+    "perimeters are provisional and",
+    "subject to revision. All panels share one scale; the black bar is 10 km.",
+    "Source: EFFIS rapid perimeters, snapshot %s."
   ),
   gallery$half_side * 2 / 1000, basename(snap)
 )
@@ -631,210 +964,14 @@ cap_gallery <- sprintf(
 plot_gallery_scars(gallery)
 ```
 
-Fires like these are not typical of the season. Across all
-`r comma(full_n)` mapped 2026 perimeters, the largest 1% alone hold about
-`r sprintf("%.0f%%", gallery$top1_share * 100)` of the season's total burned
-area. Most fires are small. A handful of monsters like the ones above do
-most of the damage, and the biggest one on the sheet, in
-`r gallery$panels$place_lab[[1]]`, is already bigger than the Paris-sized
-circle next to it.
+Fires like these are not typical of the season, but as the curve above
+showed, they do most of the damage. The biggest one on the sheet, in
+`r gallery$panels$place_lab[[1]]`, is bigger than the Paris-sized circle next
+to it.
 
-## See it for yourself: drop each fire onto Paris
-
-A grey circle is one way to picture "the size of Paris," but the real city
-is not a circle. What if you could see a fire's true, ragged outline sitting
-directly on the streets you might actually know? The map below does exactly
-that: it takes the true shape of each of the `r nrow(gallery$meta)` fires
-above and slides it onto the real municipal boundary of Paris, one fire at a
-time, so the comparison is against the actual city rather than a stand-in
-shape.
-
-```{r}
-#| label: paris-comparison-data
-
-# Reuses gallery$panels/gallery$meta (already computed for the static
-# figure above) rather than re-selecting or re-simplifying the top-10 from
-# scratch; build_paris_comparison() only adds a translation ("+ Paris
-# centroid") on top of geometry build_gallery_scars() already produced.
-# Cache key mirrors the leaflet-data chunk's convention above: asof<date>
-# is enough because gallery (its only input besides the static Paris
-# boundary asset) is itself built from snapshot-aware tagged_2026_full.
-paris_cmp <- cached(
-  sprintf("paris_comparison_asof%s", format(as_of, "%Y%m%d")),
-  build_paris_comparison(gallery),
-  version = 1
-)
-
-paris_fires <- paris_cmp$fires_wgs84 |>
-  mutate(
-    fill_col = unname(pal_lc[dominant_lc]),
-    times_paris = area_ha / paris_cmp$paris_ha,
-    group_label = sprintf(
-      "%s. %s (%s), %s ha", rank, commune, iso_a2, comma(round(area_ha))
-    ),
-    popup_html = sprintf(
-      paste(
-        "<b>%02d. %s</b><br/>Country: %s<br/>Date: %s<br/>",
-        "Mapped area: %s ha<br/><b>%.1f×</b> the area of Paris (%s ha)"
-      ),
-      as.integer(rank), commune, name_long, format(ba_date, "%Y-%m-%d"),
-      comma(round(area_ha)), times_paris, comma(round(paris_cmp$paris_ha))
-    )
-  )
-```
-
-::: {.callout-note title="Read this map honestly"}
-- These fires never happened anywhere near Paris. Their real locations are
-  on the maps earlier in this post; here, each outline is **moved** so its
-  size can be compared directly to a familiar shape.
-- Paris's own outline is its real municipal boundary (INSEE code 75056,
-  not a circle this time), about
-  `r comma(round(paris_cmp$paris_ha))` hectares by this geometry (close to,
-  but not identical to, the round 10,500 ha used as a reference constant
-  elsewhere on this page). Boundary data:
-  [france-geojson](https://github.com/gregoiredavid/france-geojson)
-  (Etalab, Licence Ouverte).
-- Pick a fire from the list on the right; only one outline is shown at a
-  time, so sizes are never visually stacked on top of each other.
-:::
-
-```{r}
-#| label: paris-comparison-leaflet
-
-# One dark, permanent outline (never toggles) for Paris itself, plus one
-# leaflet GROUP per fire; addLayersControl(baseGroups = ...) makes group
-# selection mutually exclusive (radio-style), and hideGroup() on every
-# label but the first leaves fire 01 selected by default.
-combined_geom <- c(sf::st_geometry(paris_cmp$paris_wgs84), sf::st_geometry(paris_fires))
-bbox_all <- sf::st_bbox(combined_geom)
-
-paris_map <- leaflet(width = "100%", height = 520) |>
-  addProviderTiles("CartoDB.Positron") |>
-  addPolygons(
-    data = paris_cmp$paris_wgs84,
-    color = "#1A1A1A", weight = 2.4, fill = FALSE, opacity = 0.9
-  ) |>
-  fitBounds(
-    lng1 = unname(bbox_all["xmin"]), lat1 = unname(bbox_all["ymin"]),
-    lng2 = unname(bbox_all["xmax"]), lat2 = unname(bbox_all["ymax"])
-  )
-
-paris_map <- purrr::reduce(seq_len(nrow(paris_fires)), function(map_acc, i) {
-  row_i <- paris_fires[i, ]
-  addPolygons(
-    map_acc,
-    data = row_i, group = row_i$group_label,
-    color = "grey20", weight = 1,
-    fillColor = row_i$fill_col, fillOpacity = 0.55,
-    popup = row_i$popup_html
-  )
-}, .init = paris_map)
-
-paris_map <- paris_map |>
-  addLayersControl(
-    baseGroups = paris_fires$group_label,
-    options = layersControlOptions(collapsed = FALSE),
-    position = "topright"
-  )
-
-# Default selection: fire 01 (already the largest, per gallery's arrange()).
-paris_map <- purrr::reduce(
-  paris_fires$group_label[-1],
-  function(map_acc, g) hideGroup(map_acc, g),
-  .init = paris_map
-)
-
-paris_map
-```
-
-# Which countries are hit hardest so far?
-
-Individual fires are dramatic on their own; country totals show where the
-season is landing hardest overall.
-
-```{r}
-#| label: countries
-#| fig-width: 12
-#| fig-height: 5.5
-#| fig-cap: !expr cap_countries
-
-ctry_2026 <- tagged_2026_full |>
-  st_drop_geometry() |>
-  group_by(name_long) |>
-  summarise(burned_ha = sum(area_ha, na.rm = TRUE), n_fires = n(), .groups = "drop") |>
-  left_join(country_land_area(eu), by = "name_long") |>
-  mutate(pct_land = 100 * burned_ha / land_area_ha)
-
-top10 <- ctry_2026 |>
-  slice_max(burned_ha, n = 10)
-
-flags <- flag_table(top10$name_long, eu$poly)
-top10 <- top10 |>
-  left_join(flags, by = "name_long") |>
-  # factor AFTER the join: joining a factor to a character column silently
-  # coerces name_long back to character, which would both scramble the bar
-  # order (alphabetical) and break the numeric y positions for the flags
-  mutate(name_long = fct_reorder(name_long, burned_ha))
-
-max_x <- max(top10$burned_ha)
-
-# Flag PNGs drawn with base annotation_raster() (no extra image package
-# needed): one raster layer per country, placed just right of its bar.
-# Discrete y positions are the factor level codes (1..10).
-flag_df <- top10 |>
-  filter(!is.na(flag_path)) |>
-  mutate(y_pos = as.integer(name_long))
-flag_layers <- lapply(seq_len(nrow(flag_df)), function(i) {
-  x0 <- flag_df$burned_ha[i] + 0.05 * max_x
-  annotation_raster(
-    png::readPNG(flag_df$flag_path[i]),
-    xmin = x0, xmax = x0 + 0.08 * max_x,
-    ymin = flag_df$y_pos[i] - 0.28, ymax = flag_df$y_pos[i] + 0.28
-  )
-})
-
-p_raw <- ggplot(top10, aes(x = burned_ha, y = name_long)) +
-  geom_col(fill = "grey90") +
-  geom_point(aes(color = col), size = 3) +
-  scale_color_identity() +
-  flag_layers +
-  scale_x_continuous(labels = lab_si_ha, expand = expansion(mult = c(0, 0.18))) +
-  labs(x = "Burned area (ha)", y = NULL) +
-  theme_burns(base_size = 12) +
-  coord_cartesian(clip = "off")
-
-p_pct <- ggplot(top10, aes(x = pct_land, y = name_long)) +
-  geom_segment(aes(x = 0, xend = pct_land, yend = name_long, color = col),
-               linewidth = 1.1, show.legend = FALSE) +
-  geom_point(aes(color = col), size = 3.2) +
-  scale_color_identity() +
-  scale_x_continuous(labels = label_percent(scale = 1),
-                     expand = expansion(mult = c(0, 0.08))) +
-  labs(x = "Share of national land area", y = NULL) +
-  theme_burns(base_size = 12) +
-  theme(axis.text.y = element_blank())
-
-# plot_spacer() inserts a gap column between the two panels so the left
-# panel's rightmost x-axis label (e.g. "150 kha") and its flags do not collide
-# with the right panel's leftmost label ("0.0%").
-p_raw + plot_spacer() + p_pct +
-  plot_layout(widths = c(3, 0.25, 2))
-```
-
-`r top10$name_long[which.max(top10$burned_ha)]` leads the raw ranking with
-about **`r comma(round(max(top10$burned_ha), -3))` hectares** so far. But raw
-hectares flatter big countries. The right panel asks a fairer question: how
-much of the country's *own* land has burned? Small countries can be hit much
-harder relative to their size, and that is where the order reshuffles.
-
-One shift is worth naming this week. While Iberia stayed almost flat, the
-south and east did not. Italy added the most of any country since the last
-update, about 15,000 hectares, partly from late-August fires in Puglia, Sicily
-and Basilicata and partly from earlier fires mapped late. Montenegro added
-roughly 10,000 hectares, a large amount for a country its size, and Bosnia and
-Herzegovina, North Macedonia and Serbia kept climbing. Bosnia still sits fifth
-in Europe for the year. The centre of gravity of this season has been moving
-east and south since mid-August, even as the Europe-wide total slowed.
+A grey circle is only a stand-in for Paris. On the
+[interactive explorer](2026-explorer.qmd) you can drop each of these ten fires,
+with its true ragged outline, onto the real map of Paris, one at a time.
 
 # Is fire returning to old scars?
 
@@ -858,8 +995,8 @@ reburn <- cached(
 )
 
 reburn_layers <- rbind(
-  st_sf(kind = "First-time burn (not in 2017–2025 scars)", geometry = reburn$new_geom),
-  st_sf(kind = "Re-burn of a 2017–2025 scar", geometry = reburn$reburn_geom)
+  st_sf(kind = "No overlap with mapped 2017–2025 scars", geometry = reburn$new_geom),
+  st_sf(kind = "Overlaps a mapped 2017–2025 scar", geometry = reburn$reburn_geom)
 )
 
 ggplot() +
@@ -867,21 +1004,55 @@ ggplot() +
   geom_sf(data = reburn_layers, aes(fill = kind, color = kind),
           linewidth = 0.1, alpha = 0.65) +
   scale_fill_manual(values = c(
-    "First-time burn (not in 2017–2025 scars)" = "#D64A05",
-    "Re-burn of a 2017–2025 scar" = "#1F78B4"
+    "No overlap with mapped 2017–2025 scars" = "#D64A05",
+    "Overlaps a mapped 2017–2025 scar" = "#1F78B4"
   ), name = NULL) +
   scale_color_manual(values = c(
-    "First-time burn (not in 2017–2025 scars)" = "#D64A05",
-    "Re-burn of a 2017–2025 scar" = "#1F78B4"
+    "No overlap with mapped 2017–2025 scars" = "#D64A05",
+    "Overlaps a mapped 2017–2025 scar" = "#1F78B4"
   ), name = NULL) +
   theme_burns(base_size = 11, map = TRUE) +
   theme(legend.position = "bottom")
 ```
 
-On the map, Spain's fires overwhelmingly break new ground, while France,
-Portugal and Italy return several times more often to ground that has already
-burned since 2017. That contrast has held all season, and Spain's August fires
-in Huelva and Aragón reinforced it rather than softening it.
+The map locates the overlap; the bars below compare it country by country.
+
+```{r}
+#| label: reburn-country-data
+
+reburn_ctry <- build_reburn_by_country(tagged_2026_full, footprint, snap, tag = "full2026")
+rb <- function(cty) reburn_ctry$reburn_share[reburn_ctry$name_long == cty]
+rb_top <- reburn_ctry |> filter(total_ha >= 20000) |> slice_max(reburn_share, n = 1)
+cap_reburn_ctry <- sprintf(paste(
+  "The share of each country's 2026 burned area that overlaps mapped 2017-2025",
+  "scars ranges from about %.0f%% in Spain to %.0f%% in %s. Countries with the",
+  "most 2026 burned area (1 January to %s); labels give overlapping hectares of",
+  "the country total. Overlap measured against a footprint simplified at",
+  "100 m; countries assigned by maximum overlap. 'No overlap' means no overlap",
+  "with mapped scars, not that the land never burned. Source: EFFIS rapid",
+  "perimeters, snapshot %s; areas from geometry in EPSG:3035, Europe-clipped."
+), 100 * rb("Spain"), 100 * rb_top$reburn_share, rb_top$name_long, as_of_lab,
+   basename(snap))
+```
+
+```{r}
+#| label: reburn-country
+#| fig-width: 8
+#| fig-height: 5.5
+#| fig-cap: !expr cap_reburn_ctry
+
+plot_reburn_by_country(reburn_ctry)
+```
+
+Spain, by far the largest burner, landed mostly outside any mapped scar:
+only about `r sprintf("%.0f%%", 100 * rb("Spain"))` of its burned area
+overlaps one, against `r sprintf("%.0f%%", 100 * rb("France"))` in France,
+`r sprintf("%.0f%%", 100 * rb("Portugal"))` in Portugal and
+`r sprintf("%.0f%%", 100 * rb("Italy"))` in Italy. Spain's August fires in
+Huelva and Aragón reinforced that contrast rather than softening it. The
+highest shares are in the Balkans, where
+`r rb_top$name_long` returned to old scars for about
+`r sprintf("%.0f%%", 100 * rb_top$reburn_share)` of its burned area.
 
 ```{r}
 #| label: aude-numbers
@@ -911,93 +1082,72 @@ shrinking: it is a description of overlap, not a verdict on land condition.
 Treat the exact figure as an estimate too. Both layers are rapid mapping
 products, and I simplified the shapes to keep the computation tractable.
 
-I still check on Aude every season now, since it's where this whole project
+I check on Aude every season now, since it is where this whole project
 started:
-`r if (aude_n > 0) sprintf("the Aude département in France does show 2026 activity: %d mapped fire%s totalling about %s hectares so far.", aude_n, if (aude_n > 1) "s" else "", comma(round(aude_ha, -2))) else "the Aude département in France shows no mapped 2026 fire in this snapshot so far (a real zero, not a data gap)."`
-France as a whole stands at about `r comma(round(fr_ha, -2))` hectares across
-`r comma(fr_n)` mapped fires this year.
+`r if (aude_n > 0) sprintf("the Aude département in France does show 2026 activity: %d mapped fire%s totalling about %s hectares.", aude_n, if (aude_n > 1) "s" else "", comma(round(aude_ha, -2))) else "the Aude département in France shows no mapped 2026 fire in this final snapshot (a real zero, not a data gap)."`
+France as a whole ends the year at about `r comma(round(fr_ha, -2))` hectares
+across `r comma(fr_n)` mapped fires.
 
 # What is actually burning?
 
 Beyond where fire keeps coming back, there is a second question worth
-asking: is this season eating into different vegetation than usual? To
-compare fairly, I use identical calendar windows: what burned between
-**1 June and
-`r as_of_lab`** this year, against what burned in the very same window in the
-nine previous seasons pooled together.
+asking: did this season eat into different vegetation than usual? To compare
+fairly, I use the same window every year, 1 June to 30 September, and I
+compare 2026 with a *typical* year rather than with an average that big years
+would dominate.
+
+```{r}
+#| label: landcover-data
+
+# Kept: the Natura trend below still reads cutoff_md.
+cutoff_md <- format(as_of, "%m-%d")
+
+lc_cmp <- build_landcover_compare(HIST_YEARS, YEAR_CURRENT, snap, eu, lc_cols, lc_labels)
+lc_up   <- lc_cmp |> slice_max(diff_pp, n = 2, with_ties = FALSE)
+lc_down <- lc_cmp |> slice_min(diff_pp, n = 1, with_ties = FALSE)
+# classes where 2026 falls outside the middle half of the nine previous summers
+lc_outside <- lc_cmp |> filter(share_cur > share_q75 | share_cur < share_q25)
+
+cap_landcover <- sprintf(paste(
+  "%s and %s made up a larger share of 2026's burned area than in a typical",
+  "season. Share of burned area by land-cover class, 1 June to 30 September:",
+  "2026 (orange dot) against the median and interquartile range of each year's",
+  "own shares in 2017-2025 (grey dot and whisker) and the pooled, area-weighted",
+  "2017-2025 composition (hollow diamond), which large seasons dominate.",
+  "Right-hand labels give 2026 minus the typical-year median in percentage",
+  "points. Shares weight each perimeter's land-cover percentages by its",
+  "Europe-clipped area. Source: EFFIS rapid perimeters, snapshot %s; areas from",
+  "geometry in EPSG:3035, Europe-clipped."
+), lc_up$label[1], tolower(lc_up$label[2]), basename(snap))
+```
 
 ```{r}
 #| label: landcover
-#| fig-width: 9.5
-#| fig-height: 3.6
+#| fig-width: 8
+#| fig-height: 5.5
 #| fig-cap: !expr cap_landcover
 
-cutoff_md <- format(as_of, "%m-%d")
-
-lc_share <- function(df, label) {
-  df |>
-    mutate(across(all_of(lc_cols), to_num)) |>
-    summarise(across(all_of(lc_cols), ~ sum(.x / 100 * area_ha, na.rm = TRUE))) |>
-    pivot_longer(everything(), names_to = "class", values_to = "lc_ha") |>
-    mutate(share = lc_ha / sum(lc_ha), group = label)
-}
-
-lc_hist <- map_dfr(HIST_YEARS, function(y) {
-  get_tagged_window(
-    y, snap, eu,
-    start_date = as.Date(sprintf("%d-06-01", y)),
-    end_date   = as.Date(paste0(y, "-", cutoff_md))
-  ) |>
-    st_drop_geometry() |>
-    mutate(year = y)
-})
-
-lc_2026 <- get_tagged_summer(YEAR_CURRENT, snap, eu,
-                             SEASON_START_MONTH, SEASON_END_MONTH) |>
-  st_drop_geometry() |>
-  filter(ba_date <= as_of)
-
-shares_2026 <- lc_share(lc_2026, sprintf("2026 (Jun 1 – %s %d)", month.abb[month(as_of)], day(as_of)))
-shares_hist <- lc_share(lc_hist, "2017–2025 average\n(same window)")
-
-lc_comp <- bind_rows(shares_2026, shares_hist) |>
-  mutate(
-    class = factor(lc_labels[class], levels = names(pal_lc)),
-    group = fct_rev(factor(group, levels = unique(group)))
-  )
-
-# Largest 2026-vs-history composition gap, quoted (stale-proof) in the prose
-lc_gap <- shares_2026 |>
-  select(class, share_cur = share) |>
-  left_join(shares_hist |> select(class, share_hist = share), by = "class") |>
-  mutate(class_label = lc_labels[class], gap = share_cur - share_hist) |>
-  slice_max(abs(gap), n = 1)
-
-ggplot(lc_comp, aes(x = share, y = group, fill = class)) +
-  geom_col(width = 0.62, color = NA) +
-  geom_text(
-    aes(
-      label = if_else(share >= 0.07, label_percent(accuracy = 1)(share), ""),
-      group = class
-    ),
-    position = position_stack(vjust = 0.5),
-    color = "white", size = 3.3, fontface = "bold"
-  ) +
-  scale_fill_manual(values = pal_lc, breaks = names(pal_lc), name = "Land cover") +
-  scale_x_continuous(labels = label_percent(), expand = expansion(mult = c(0, 0.01))) +
-  labs(
-    x = "Share of burned area", y = NULL,
-    caption = "Pooled 2017–2025 shares are area-weighted across all nine years' same-window fires."
-  ) +
-  theme_burns(base_size = 12)
+plot_landcover_compare(lc_cmp, YEAR_CURRENT)
 ```
 
-Compare the two bars: where they differ is where this season deviates from
-the recent norm. Right now the biggest gap is **`r lc_gap$class_label`**, at
-`r label_percent(accuracy = 1)(lc_gap$share_cur)` of this season's burned
-area versus `r label_percent(accuracy = 1)(lc_gap$share_hist)` in a typical
-early season. Read the bars as *what burned*, not as what burns easily: they
-describe the landscape the fires happened to cross.
+Each row is one kind of land. The grey dot is a typical summer and its grey
+whisker spans the middle half of the last nine; the orange dot is 2026. Read
+across a row: when the orange dot sits off the whisker, 2026 burned an unusual
+amount of that kind of land. 2026 leaned towards forest:
+**`r tolower(lc_up$label[1])`** made up
+`r sprintf("%.0f%%", 100 * lc_up$share_cur[1])` of the burned area against
+`r sprintf("%.0f%%", 100 * lc_up$share_med[1])` in a typical year, and
+`r tolower(lc_up$label[2])` `r sprintf("%.0f%%", 100 * lc_up$share_cur[2])`
+against `r sprintf("%.0f%%", 100 * lc_up$share_med[2])`, while
+`r tolower(lc_down$label[1])` fell to
+`r sprintf("%.0f%%", 100 * lc_down$share_cur[1])` from
+`r sprintf("%.0f%%", 100 * lc_down$share_med[1])`. That fits the season's
+geography: the Médoc pines, the Ávila and Madrid forests and the Balkan
+woodland. The hollow diamonds show why the yardstick matters: an average
+pooled across all nine years is pulled towards the biggest seasons, and for
+some classes it tells a different story from a typical year. Read the dots as
+*what burned*, not as what burns easily: they describe the landscape the fires
+happened to cross.
 
 ::: {.callout-note title="What the land-cover classes mean" collapse="true"}
 - **Broad-leaved forest**: deciduous trees (oaks, beeches).
@@ -1032,12 +1182,16 @@ still useful context.
 
 EFFIS tags every perimeter with the share of its own area that falls inside
 a Natura 2000 site. The chart below turns that into a season-by-season
-series, using the same 1 June cutoff every year so the comparison is fair.
+series, using the same 1 June to 30 September window every year so the
+comparison is fair. It counts EU countries only: Natura 2000 does not exist
+outside the EU, so including the Balkans or the United Kingdom would make the
+share drop every time fire moves there, whatever happens inside protected
+land.
 
 ```{r}
 #| label: natura-trend
 #| fig-width: 8
-#| fig-height: 4.2
+#| fig-height: 6
 #| fig-cap: !expr cap_natura_trend
 
 natura_trend <- build_natura_trend(
@@ -1055,10 +1209,12 @@ natura_2026       <- natura_trend |> dplyr::filter(year == YEAR_CURRENT)
 natura_hist_median <- stats::median(natura_trend$share[natura_trend$year != YEAR_CURRENT], na.rm = TRUE)
 ```
 
-Weighting by area, about `r sprintf("%.0f%%", natura_2026$share * 100)` of
-2026's burned area in this window sits inside a Natura 2000 site, against a
-`r sprintf("%.0f%%", natura_hist_median * 100)` median for 2017-2025 by the
-same date. The map below shows exactly which 2026 scars carry a high
+Inside the EU, about `r sprintf("%.0f%%", natura_2026$share * 100)` of
+2026's summer burned area sits inside a Natura 2000 site, roughly
+`r comma(round(natura_2026$natura_ha, -3))` hectares, against a
+`r sprintf("%.0f%%", natura_hist_median * 100)` median for 2017-2025. The share
+is ordinary; the hectares are not, because so much more burned overall.
+`r natura_ahead <- natura_trend$year[natura_trend$natura_ha > natura_2026$natura_ha]; if (length(natura_ahead)) paste0("Only ", and_list(natura_ahead), " put more protected land through fire in this record.") else "No summer in this record put more protected land through fire."` The map below shows exactly which 2026 scars carry a high
 protected-area share; grey outlines mark fires with none.
 
 ```{r}
@@ -1070,127 +1226,85 @@ protected-area share; grey outlines mark fires with none.
 plot_natura_map(tagged_2026_full, eu)
 ```
 
-# France and Spain, each against its own past
+# Explore the season yourself
 
-Two countries are carrying most of 2026, and it is worth seeing each on its own
-terms, against its own recent history rather than Europe's. The two charts below
-repeat the race-against-the-past idea from the top of the page, once for France
-and once for Spain: the grey band is that country's own 2017 to 2025 range, and
-the orange line is 2026 to date.
+Everything above is a summary. This section is for readers who want to watch
+the season happen, or to look at the fires one by one.
 
-```{r}
-#| label: france-spain-numbers
+The cumulative chart at the top compresses four months into one frame, which
+is exactly what makes a step in the line easy to read past. So here is the same
+data at its own pace: the map and the line locked to one clock, one frame per day. A fire
+flares bright on its fire date (the day EFFIS records it starting), glows for two more, then settles to a
+scar, and the ring around it is sized by area, so a megafire announces itself
+rather than becoming one pixel among thousands. The animation holds for a beat
+on the three biggest days.
 
-fs_df <- tagged_2026_full |> st_drop_geometry()
+Watch 22 July. Two rings open almost together, one over the Gironde and one
+over Ávila: about 42,000 hectares in Spain and 37,000 in France on the same
+day. The line jumps by roughly
+`r comma(round(top_days$area_ha[1], -3))` hectares in one step, the single
+biggest day of the summer. Then watch 6 August, much further southwest, when a
+single fire in Huelva adds about 44,000 more.
 
-# Gironde (the departement around Bordeaux)
-gir     <- fs_df |> dplyr::filter(!is.na(province), province == "Gironde")
-gir_big <- gir |> dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
-
-# Provinces ringing Madrid (Sierra de Gredos / Guadarrama). "vila$" matches
-# "Avila" without depending on the accent byte encoding of the province field.
-madrid_ring <- fs_df |> dplyr::filter(
-  !is.na(province), grepl("vila$|Guadalajara|^Madrid$|Segovia", province)
-)
-madrid_ring_ha <- sum(madrid_ring$area_ha, na.rm = TRUE)
-navaluenga <- fs_df |> dplyr::filter(grepl("Navaluenga", dplyr::coalesce(commune, ""))) |>
-  dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
-
-# Largest fire inside the Comunidad de Madrid itself. Selected by PROVINCE, not
-# by commune name: EFFIS re-attributes communes between snapshots as perimeters
-# are refined (the 2026-07-23 fire was mapped under San Martin de Valdeiglesias
-# in the 26 July snapshot and under Navas del Rey in the 20 August one), which
-# silently collapsed a commune-name filter to a 35 ha fire and rounded the
-# prose figure to "0 hectares". Province is the stable unit here.
-madrid_big <- fs_df |> dplyr::filter(!is.na(province), province == "Madrid") |>
-  dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
-
-# Season-wide largest fire, so the prose never hardcodes which fire leads.
-biggest_fire <- fs_df |> dplyr::slice_max(area_ha, n = 1, with_ties = FALSE)
-
-# English date labels, locale-proof (see as_of_lab in the setup chunk)
-date_lab <- function(d) paste(lubridate::day(d), month.name[lubridate::month(d)])
-
-cap_env_fr <- sprintf(paste(
-  "Cumulative burned area in France since 1 June: 2026 to date against the",
-  "2017-2025 range. The shaded band spans the minimum and maximum cumulative",
-  "trajectory of the nine previous seasons on each day of the season; the dashed",
-  "line is their median. The 2026 line stops at its last mapped perimeter (%s)."
-), as_of_lab)
-cap_env_es <- sprintf(paste(
-  "Cumulative burned area in Spain since 1 June: 2026 to date against the",
-  "2017-2025 range. The shaded band spans the minimum and maximum cumulative",
-  "trajectory of the nine previous seasons on each day of the season; the dashed",
-  "line is their median. The 2026 line stops at its last mapped perimeter (%s)."
-), as_of_lab)
+::: {#fig-race}
+```{=html}
+<video controls muted playsinline preload="metadata"
+       poster="/assets/anim/2026-race-poster.png" width="100%"
+       aria-label="Two-panel animation: a map of Europe accumulating wildfire perimeters day by day beside the cumulative burned-area chart drawing itself against the 2017-2025 range.">
+  <source src="/assets/anim/2026-race.mp4" type="video/mp4">
+  <img src="/assets/anim/2026-race.gif" alt="Two-panel animation of the 2026 season, day by day." style="width:100%">
+</video>
 ```
 
-```{r}
-#| label: envelope-france
-#| fig-width: 9.5
-#| fig-height: 5
-#| fig-cap: !expr cap_env_fr
+The 2026 season played back day by day, 1 June to `r as_of_lab`; use the player
+controls to pause or scrub. Left: mapped
+perimeters accumulating, coloured by age (bright on the fire date, then
+fading to a muted scar); dot and ring radius scale with the square root of
+burned area, so marker size is proportional to area. Right: the same cumulative
+burned-area chart as above, drawn to the same date, against the 2017-2025
+min-max band (grey) and median (dashed). The header reports the running total
+as a percentage of the historical median for that calendar date. Playback holds
+on the three largest burn days, which are annotated with the fires that drove
+them (any fire contributing at least 10% of that day's area). The map viewport
+is framed on the 1st-99th percentile of fire locations, so a few outlying
+Nordic and Irish fires sit near or just beyond the edge. Source: EFFIS rapid
+perimeters, snapshot `r basename(snap)`; geometry in EPSG:3035.
+:::
 
-env_fr <- build_envelope(
-  HIST_YEARS, YEAR_CURRENT, snap, eu,
-  SEASON_START_MONTH, SEASON_END_MONTH, as_of_date = as_of, country = "France"
-)
-plot_envelope(env_fr)
-```
+# What 2026 leaves behind
 
-France has now passed one hundred thousand hectares for the year, and its 2026
-line has pulled clear of every recent summer except 2022. A single fire is most
-of that recent jump, and it is close to home for me. As a French reader I have
-followed this Atlantic coast for years, and for the first seven weeks of the
-season the Gironde, the département around Bordeaux, had not recorded a single
-mapped fire. Then, on `r date_lab(gir_big$ba_date)`, the Médoc pine forest at Le
-Porge burned: about **`r comma(round(gir_big$area_ha, -3))` hectares** in one
-fire, more than the whole of Gironde's catastrophic 2022 season put together. A
-burn that size on that coast is not something I can look past, and I am watching
-it closely as the season runs on.
+In July this page asked whether 2026's early pace would hold or ease. Four
+months of data later, here is what the season leaves behind.
 
-```{r}
-#| label: envelope-spain
-#| fig-width: 9.5
-#| fig-height: 5
-#| fig-cap: !expr cap_env_es
+**It was a severe year, and not a lonely one.** 2026 finished as
+`r rank_word` summer of the last `r n_seasons`, at about
+`r sprintf("%.0f%%", pct_vs_med - 100)` above a typical one.`r if (identical(as.integer(beaten_by), 2025L)) " The only summer ahead of it is the one just before it: two of the worst seasons in this record are now back to back, 2025 and 2026." else ""`
+Two years do not make a trend, but they are exactly the kind of pair worth
+watching in 2027.
 
-env_es <- build_envelope(
-  HIST_YEARS, YEAR_CURRENT, snap, eu,
-  SEASON_START_MONTH, SEASON_END_MONTH, as_of_date = as_of, country = "Spain"
-)
-plot_envelope(env_es)
-```
+**It was made in summer.** The spring that looked strange in May turned out
+to be an average one. What set 2026 apart was July, and above all a
+handful of days, with
+`r paste(day(top_days$ba_date[1]), month.name[month(top_days$ba_date[1])])`
+the biggest of them, when several very large
+fires broke out at once in different countries.
 
-Spain is the heavier story, running far above anything in its own recent record,
-and it has now produced two separate surges rather than one. The first sits in
-the mountains ringing Madrid: the Sierra de Gredos and the ranges north of the
-capital. About **`r comma(round(navaluenga$area_ha, -3))` hectares** burned at
-Navaluenga in Ávila on `r date_lab(navaluenga$ba_date)`, and
-`r madrid_big$commune`, inside the Comunidad de Madrid itself, added about
-`r comma(round(madrid_big$area_ha, -3))` hectares the next day. Taken together,
-the provinces around Madrid account for roughly
-`r comma(round(madrid_ring_ha, -3))` hectares this year.
+**It was wide.** The usual hotspots burned, but so did countries that rarely
+burn this much:
+`r and_list(worst_ctry)` had `r if (length(worst_ctry) > 1) "their" else "its"`
+worst summer in ten years. For France, the Médoc fire at Le Porge alone was
+bigger than Gironde's whole 2022 season.
 
-The second surge came in August, and it moved the record. The largest single
-fire of the 2026 season so far is no longer in the Madrid ring at all: about
-**`r comma(round(biggest_fire$area_ha, -3))` hectares** at
-`r biggest_fire$commune` in `r biggest_fire$province`, mapped on
-`r date_lab(biggest_fire$ba_date)`, in the Atlantic southwest of Andalusia
-rather than the central mountains. Aragón followed four days later, with
-another large fire in the Huesca pre-Pyrenees. This is the pattern worth
-watching in the weeks left: 2026's Spanish burning is not staying in one place.
+**It was, as always, a story of giants.** Most fires were small, but the
+largest 1% of them held about
+`r sprintf("%.0f%%", 100 * top1)` of everything that burned over the summer.
+A season's total is decided less by how many fires start than by the few
+that escape control on the worst days.
 
-That is the season through `r as_of_lab`. July and August carry most of a
-typical European fire season, and they are now behind us: 2026 leaves them
-clearly above normal and second only to 2025. The question this page asked in
-July, whether the early pace would hold or ease, now has an answer in two
-parts. It held through the first half of August, and then eased markedly. How
-markedly is not yet knowable, because the most recent days are still filling
-in. What is left to watch is September, quiet in some years and the month
-Iberia burns again in others, and the southern and eastern flank, Italy and
-the western Balkans, which are still adding while Iberia has gone still. This
-page updates weekly as new EFFIS outlines come in.
+This page now stops updating, and it stays here as the record of the 2026
+season, next to the [2025 one](2025.qmd). The [tracker](../index.qmd) will
+start again in June 2027.
+
 
 ::: {.callout-note title="A final word of caution"}
 Everything on this page is a rapid satellite estimate, not an official

@@ -486,9 +486,23 @@ natura_summary <- function(tg, year) {
   )
 }
 
+#' EU-27 member states (name_long as used by the tagged data / Natural Earth).
+#' Natura 2000 exists only in these countries; Cyprus and Malta are listed for
+#' completeness but are absent from the Europe polygons used here.
+eu27_names <- c(
+  "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Czech Republic",
+  "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary",
+  "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Malta",
+  "Netherlands", "Poland", "Portugal", "Romania", "Slovakia", "Slovenia",
+  "Spain", "Sweden"
+)
+
 #' Year-by-year share of burned area falling inside Natura 2000 protected
 #' sites, same Jun 1-cutoff window every year so seasons compare like for
-#' like. Historical years reuse the SAME cached Jun1-cutoff tagged windows
+#' like. The headline share is computed over EU-27 countries ONLY: Natura 2000
+#' does not exist elsewhere, so a Europe-wide denominator would drop whenever
+#' burning shifts to the Balkans or the UK without any change in protection.
+#' Historical years reuse the SAME cached Jun1-cutoff tagged windows
 #' already built for the land-cover chunk (identical cache key via
 #' get_tagged_window()) -- no extra geometry read. The current year reuses an
 #' already-loaded tagged object, filtered in-memory to the same window.
@@ -497,9 +511,26 @@ natura_summary <- function(tg, year) {
 #' @param current_tagged sf, already-tagged full-year perimeters for year_current
 #' @param snapshot_dir, eu as elsewhere
 #' @param cutoff_md "MM-DD" string marking the same-window end date every year
-#' @return tibble(year, total_ha, prot_ha, share)
-build_natura_trend <- function(hist_years, year_current, current_tagged, snapshot_dir, eu, cutoff_md, version = 1) {
+#' @return tibble(year, total_ha, prot_ha, share, natura_ha, eu_ha,
+#'   share_europe, europe_ha): total_ha/eu_ha = EU-27 burned ha, prot_ha/
+#'   natura_ha = EU-27 ha inside Natura 2000 (PERCNA2K-weighted), share =
+#'   natura_ha / eu_ha; share_europe and europe_ha are the old Europe-wide
+#'   (all tagged countries) values, kept for comparison only.
+build_natura_trend <- function(hist_years, year_current, current_tagged, snapshot_dir, eu, cutoff_md, version = 2) {
   key <- sprintf("natura_trend_%d_%d_%s", min(hist_years), year_current, gsub("-", "", cutoff_md))
+
+  # Both the EU-27 and the Europe-wide summary per year; countries with no
+  # name_long (unassigned) fall out of the EU-27 subset by construction.
+  summarise_both <- function(tg, y) {
+    eu_part  <- natura_summary(tg[tg$name_long %in% eu27_names, ], y)
+    all_part <- natura_summary(tg, y)
+    tibble::tibble(
+      year = y,
+      total_ha = eu_part$total_ha, prot_ha = eu_part$prot_ha, share = eu_part$share,
+      natura_ha = eu_part$prot_ha, eu_ha = eu_part$total_ha,
+      share_europe = all_part$share, europe_ha = all_part$total_ha
+    )
+  }
 
   cached(key, {
     hist_part <- purrr::map_dfr(hist_years, function(y) {
@@ -508,13 +539,13 @@ build_natura_trend <- function(hist_years, year_current, current_tagged, snapsho
         start_date = as.Date(sprintf("%d-06-01", y)),
         end_date   = as.Date(paste0(y, "-", cutoff_md))
       )
-      natura_summary(tg, y)
+      summarise_both(tg, y)
     })
 
     cur_start <- as.Date(sprintf("%d-06-01", year_current))
     cur_end   <- as.Date(paste0(year_current, "-", cutoff_md))
     cur_tg <- current_tagged |> dplyr::filter(ba_date >= cur_start, ba_date <= cur_end)
-    cur_part <- natura_summary(cur_tg, year_current)
+    cur_part <- summarise_both(cur_tg, year_current)
 
     dplyr::bind_rows(hist_part, cur_part)
   }, version = version)
@@ -565,7 +596,14 @@ build_gallery_scars <- function(tagged_full, n = 10L, lc_cols, lc_labels, paris_
   # column at ncol = 4; country given as its ISO2 code (compact "name"
   # fallback, since per-panel flag icons inside facet_wrap add real
   # complexity for little payoff at this size).
-  commune_raw <- dplyr::coalesce(top_n$commune, "Unnamed")
+  # EFFIS writes the literal string "N.A." when a fire has no commune, so fall
+  # back to the province (when it is in Latin script), then to the country.
+  commune_ok  <- !is.na(top_n$commune) & !top_n$commune %in% c("N.A.", "")
+  province_ok <- !is.na(top_n$province) & top_n$province != "N.A." &
+    grepl("^[\\p{Latin}0-9 .,'()/-]+$", top_n$province, perl = TRUE)
+  commune_raw <- dplyr::case_when(
+    commune_ok ~ top_n$commune, province_ok ~ top_n$province, TRUE ~ top_n$name_long
+  )
   commune_lab <- ifelse(
     nchar(commune_raw) > 20, paste0(substr(commune_raw, 1, 19), "…"), commune_raw
   )

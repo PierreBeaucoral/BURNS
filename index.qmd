@@ -2,13 +2,16 @@
 title: "Europe Wildfire Season Tracker"
 subtitle: "EFFIS rapid perimeters, updated weekly during fire season"
 author: "Pierre Beaucoral"
-date: today
+date: 2026-10-02
 execute:
   freeze: false
 ---
 
 How bad is this fire season, and how would you actually know? This tracker
-follows Europe's wildfire season as it unfolds. Satellites spot wildfires
+follows Europe's wildfire season as it unfolds. **The 2026 season is now
+closed**: the numbers below are final, and the
+**[2026 season in review](posts/2026.qmd)** gives the verdict. Updates resume
+next June. Satellites spot wildfires
 (large ones reliably, and increasingly small ones too), and Europe's **EFFIS** service,
 part of the Copernicus programme, draws the outline of each burned area it
 can map. During the fire season (**June to September**) this site refreshes
@@ -58,9 +61,10 @@ as_of_lab <- paste(day(m$as_of_date), month.name[month(m$as_of_date)])
 
 cap_envelope <- sprintf(
   paste(
-    "Cumulative burned area since 1 June: 2026 to date against the 2017–2025",
-    "range (shaded band: min–max; dashed line: median). The 2026 line stops at",
-    "its last mapped perimeter (%s)."
+    "Cumulative burned area since 1 June: the full 2026 season against the 2017–2025",
+    "seasons (thin grey lines; band: middle half of those seasons; dashed line:",
+    "median), with 2026's weekly burned area underneath. The shaded last 14 days",
+    "are still being mapped. The 2026 line stops at its last mapped perimeter (%s)."
   ),
   as_of_lab
 )
@@ -76,8 +80,8 @@ cap_envelope <- sprintf(
 
 ```{r}
 #| label: tracker-envelope
-#| fig-width: 9.5
-#| fig-height: 5.5
+#| fig-width: 8
+#| fig-height: 6.5
 #| fig-cap: !expr cap_envelope
 
 plot_envelope(envelope)
@@ -85,5 +89,4 @@ plot_envelope(envelope)
 
 **The full picture** (hero and interactive maps, country rankings, raw and
 normalized by land area, re-burn analysis, and what vegetation is burning)
-lives on the **[2026 season page](posts/2026.qmd)**, updated with each
-snapshot.
+lives on the **[2026 season in review](posts/2026.qmd)**.

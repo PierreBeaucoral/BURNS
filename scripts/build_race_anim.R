@@ -28,7 +28,9 @@
 #   Rscript scripts/build_race_anim.R            # current season, default output
 #   Rscript scripts/build_race_anim.R 2025       # rebuild for an archived season
 #
-# Output: assets/anim/<year>-race.gif
+# Output: assets/anim/<year>-race.gif   (fallback; browsers cannot pause a GIF)
+#         assets/anim/<year>-race.mp4   (H.264, yuv420p, faststart; use in <video controls>)
+#         assets/anim/<year>-race-poster.png (last frame, used as video poster)
 # ==============================================================================
 
 suppressPackageStartupMessages({
@@ -60,6 +62,9 @@ DPI         <- 110
 OUT_DIR <- file.path("assets", "anim")
 dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
 OUT_GIF <- file.path(OUT_DIR, sprintf("%d-race.gif", YEAR))
+OUT_MP4 <- file.path(OUT_DIR, sprintf("%d-race.mp4", YEAR))
+OUT_POSTER <- file.path(OUT_DIR, sprintf("%d-race-poster.png", YEAR))
+FFMPEG <- if (nzchar(Sys.which("ffmpeg"))) Sys.which("ffmpeg") else "/opt/homebrew/bin/ffmpeg"
 
 message("Season race: ", YEAR, "  (hist band ", min(HIST_YEARS), "-", max(HIST_YEARS), ")")
 
@@ -298,7 +303,21 @@ for (i in seq_along(frame_dates)) {
 message("encoding ", length(files), " frames -> ", OUT_GIF)
 gifski(files, gif_file = OUT_GIF, width = W_PX, height = H_PX,
        delay = 1 / FPS, progress = FALSE)
+
+# MP4 from the same frames: the browser gets play/pause/scrub. yuv420p +
+# faststart for universal playback and instant start; crf 23 keeps the flat-colour
+# frames small. Dimensions are even (required by yuv420p).
+stopifnot(file.exists(FFMPEG), W_PX %% 2 == 0, H_PX %% 2 == 0)
+rc <- system2(FFMPEG, c(
+  "-y", "-loglevel", "error", "-framerate", FPS,
+  "-i", shQuote(file.path(frame_dir, "f%04d.png")),
+  "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "23", "-preset", "slow",
+  "-movflags", "+faststart", shQuote(OUT_MP4)
+))
+if (rc != 0L) stop("ffmpeg failed")
+file.copy(files[length(files)], OUT_POSTER, overwrite = TRUE)
 unlink(frame_dir, recursive = TRUE)
+message(sprintf("mp4: %s (%.1f MB)", OUT_MP4, file.size(OUT_MP4) / 1024^2))
 
 message(sprintf("done: %s (%.1f MB, %.1f min total)",
                 OUT_GIF, file.size(OUT_GIF) / 1024^2,

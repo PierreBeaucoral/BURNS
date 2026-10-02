@@ -11,6 +11,11 @@ project:
   # every render copy it. `favicon:` is handled by Quarto and needs no entry.
   resources:
     - assets/og-image.png
+    # The race animation is embedded via a raw-HTML <video>, which Quarto does
+    # not scan for referenced files, so list every format explicitly.
+    - assets/anim/2026-race.mp4
+    - assets/anim/2026-race.gif
+    - assets/anim/2026-race-poster.png
   # Regenerate the SCSS colour mirror from the shared token YAML before every
   # render, so R figures and HTML chrome always agree. Pure local, no network.
   pre-render:
@@ -19,6 +24,7 @@ project:
     - index.qmd
     - about.qmd
     - posts/2026.qmd
+    - posts/2026-explorer.qmd
     - posts/2025.qmd
 
 website:
@@ -39,8 +45,10 @@ website:
         href: index.qmd
       - text: "Seasons"
         menu:
-          - text: "2026 (current)"
+          - text: "2026 (final)"
             href: posts/2026.qmd
+          - text: "2026 interactive explorer"
+            href: posts/2026-explorer.qmd
           - text: "2025 (archive)"
             href: posts/2025.qmd
       - text: "About"
