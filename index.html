@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Pierre Beaucoral">
-<meta name="dcterms.date" content="2026-09-03">
+<meta name="dcterms.date" content="2026-10-02">
 
 <title>Europe Wildfire Season Tracker – BURNS: Europe Wildfire Season Tracker</title>
 <style>
@@ -329,7 +329,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <ul class="dropdown-menu" aria-labelledby="nav-menu-seasons">    
         <li>
     <a class="dropdown-item" href="./posts/2026.html">
- <span class="dropdown-text">2026 (current)</span></a>
+ <span class="dropdown-text">2026 (final)</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="./posts/2026-explorer.html">
+ <span class="dropdown-text">2026 interactive explorer</span></a>
   </li>  
         <li>
     <a class="dropdown-item" href="./posts/2025.html">
@@ -358,7 +362,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#season-at-a-glance-as-of-2-september-2026" id="toc-season-at-a-glance-as-of-2-september-2026" class="nav-link active" data-scroll-target="#season-at-a-glance-as-of-2-september-2026">Season at a glance, as of 2 September 2026</a></li>
+  <li><a href="#season-at-a-glance-as-of-30-september-2026" id="toc-season-at-a-glance-as-of-30-september-2026" class="nav-link active" data-scroll-target="#season-at-a-glance-as-of-30-september-2026">Season at a glance, as of 30 September 2026</a></li>
   </ul>
 </nav>
     </div>
@@ -386,7 +390,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">September 3, 2026</p>
+      <p class="date">October 2, 2026</p>
     </div>
   </div>
   
@@ -398,7 +402,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p>How bad is this fire season, and how would you actually know? This tracker follows Europe’s wildfire season as it unfolds. Satellites spot wildfires (large ones reliably, and increasingly small ones too), and Europe’s <strong>EFFIS</strong> service, part of the Copernicus programme, draws the outline of each burned area it can map. During the fire season (<strong>June to September</strong>) this site refreshes <strong>weekly</strong>: a pipeline fetches the newest outlines, stores a dated copy under <code>DATA/snapshots/</code>, and every chart re-renders from that copy. Fire sizes are measured directly from the mapped shapes, in a map projection that keeps areas honest, and each fire is assigned to the country it overlaps most. Same method as the <a href="./posts/2025.html">2025 season analysis</a> this project grew from.</p>
+<p>How bad is this fire season, and how would you actually know? This tracker follows Europe’s wildfire season as it unfolds. <strong>The 2026 season is now closed</strong>: the numbers below are final, and the <strong><a href="./posts/2026.html">2026 season in review</a></strong> gives the verdict. Updates resume next June. Satellites spot wildfires (large ones reliably, and increasingly small ones too), and Europe’s <strong>EFFIS</strong> service, part of the Copernicus programme, draws the outline of each burned area it can map. During the fire season (<strong>June to September</strong>) this site refreshes <strong>weekly</strong>: a pipeline fetches the newest outlines, stores a dated copy under <code>DATA/snapshots/</code>, and every chart re-renders from that copy. Fire sizes are measured directly from the mapped shapes, in a map projection that keeps areas honest, and each fire is assigned to the country it overlaps most. Same method as the <a href="./posts/2025.html">2025 season analysis</a> this project grew from.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Show code</summary>
@@ -439,20 +443,21 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>cap_envelope <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(</span>
 <span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">paste</span>(</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Cumulative burned area since 1 June: 2026 to date against the 2017–2025"</span>,</span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="st">"range (shaded band: min–max; dashed line: median). The 2026 line stops at"</span>,</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    <span class="st">"its last mapped perimeter (%s)."</span></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>  as_of_lab</span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Cumulative burned area since 1 June: the full 2026 season against the 2017–2025"</span>,</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="st">"seasons (thin grey lines; band: middle half of those seasons; dashed line:"</span>,</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    <span class="st">"median), with 2026's weekly burned area underneath. The shaded last 14 days"</span>,</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    <span class="st">"are still being mapped. The 2026 line stops at its last mapped perimeter (%s)."</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>  as_of_lab</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
-<section id="season-at-a-glance-as-of-2-september-2026" class="level2">
-<h2 class="anchored" data-anchor-id="season-at-a-glance-as-of-2-september-2026">Season at a glance, as of 2 September 2026</h2>
+<section id="season-at-a-glance-as-of-30-september-2026" class="level2">
+<h2 class="anchored" data-anchor-id="season-at-a-glance-as-of-30-september-2026">Season at a glance, as of 30 September 2026</h2>
 <div id="tbl-glance" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-glance-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;1: Totals count only the parts of each fire inside Europe (snapshot 2026-09-03). Fire <em>counts</em> are not comparable across years because the detection system changed; the median comparison uses burned <em>area</em>. Details on the <a href="./posts/2026.html">season page</a>.
+Table&nbsp;1: Totals count only the parts of each fire inside Europe (snapshot 2026-10-02). Fire <em>counts</em> are not comparable across years because the detection system changed; the median comparison uses burned <em>area</em>. Details on the <a href="./posts/2026.html">season page</a>.
 </figcaption>
 <div aria-describedby="tbl-glance-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -470,9 +475,9 @@ Table&nbsp;1: Totals count only the parts of each fire inside Europe (snapshot 2
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: center;"><strong>669 kha</strong></td>
-<td style="text-align: center;"><strong>3,419</strong></td>
-<td style="text-align: center;"><strong>184%</strong></td>
+<td style="text-align: center;"><strong>786 kha</strong></td>
+<td style="text-align: center;"><strong>4,730</strong></td>
+<td style="text-align: center;"><strong>163%</strong></td>
 </tr>
 </tbody>
 </table>
@@ -487,13 +492,13 @@ Table&nbsp;1: Totals count only the parts of each fire inside Europe (snapshot 2
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><a href="index_files/figure-html/tracker-envelope-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Cumulative burned area since 1 June: 2026 to date against the 2017–2025 range (shaded band: min–max; dashed line: median). The 2026 line stops at its last mapped perimeter (2 September)."><img src="index_files/figure-html/tracker-envelope-1.png" class="img-fluid figure-img" width="912" alt="Cumulative burned area since 1 June: 2026 to date against the 2017–2025 range (shaded band: min–max; dashed line: median). The 2026 line stops at its last mapped perimeter (2 September)."></a></p>
-<figcaption>Cumulative burned area since 1 June: 2026 to date against the 2017–2025 range (shaded band: min–max; dashed line: median). The 2026 line stops at its last mapped perimeter (2 September).</figcaption>
+<p><a href="index_files/figure-html/tracker-envelope-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Cumulative burned area since 1 June: the full 2026 season against the 2017–2025 seasons (thin grey lines; band: middle half of those seasons; dashed line: median), with 2026’s weekly burned area underneath. The shaded last 14 days are still being mapped. The 2026 line stops at its last mapped perimeter (30 September)."><img src="index_files/figure-html/tracker-envelope-1.png" class="img-fluid figure-img" width="768" alt="Cumulative burned area since 1 June: the full 2026 season against the 2017–2025 seasons (thin grey lines; band: middle half of those seasons; dashed line: median), with 2026’s weekly burned area underneath. The shaded last 14 days are still being mapped. The 2026 line stops at its last mapped perimeter (30 September)."></a></p>
+<figcaption>Cumulative burned area since 1 June: the full 2026 season against the 2017–2025 seasons (thin grey lines; band: middle half of those seasons; dashed line: median), with 2026’s weekly burned area underneath. The shaded last 14 days are still being mapped. The 2026 line stops at its last mapped perimeter (30 September).</figcaption>
 </figure>
 </div>
 </div>
 </div>
-<p><strong>The full picture</strong> (hero and interactive maps, country rankings, raw and normalized by land area, re-burn analysis, and what vegetation is burning) lives on the <strong><a href="./posts/2026.html">2026 season page</a></strong>, updated with each snapshot.</p>
+<p><strong>The full picture</strong> (hero and interactive maps, country rankings, raw and normalized by land area, re-burn analysis, and what vegetation is burning) lives on the <strong><a href="./posts/2026.html">2026 season in review</a></strong>.</p>
 
 
 <!-- -->
@@ -974,91 +979,94 @@ Table&nbsp;1: Totals count only the parts of each fire inside Europe (snapshot 2
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Europe Wildfire Season Tracker"</span></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "EFFIS rapid perimeters, updated weekly during fire season"</span></span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Pierre Beaucoral"</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> today</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> 2026-10-02</span></span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">  freeze: false</span></span>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>How bad is this fire season, and how would you actually know? This tracker</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>follows Europe's wildfire season as it unfolds. Satellites spot wildfires</span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>(large ones reliably, and increasingly small ones too), and Europe's **EFFIS** service,</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>part of the Copernicus programme, draws the outline of each burned area it</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>can map. During the fire season (**June to September**) this site refreshes</span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>**weekly**: a pipeline fetches the newest outlines, stores a dated copy under</span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="in">`DATA/snapshots/`</span>, and every chart re-renders from that copy. Fire sizes are</span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>measured directly from the mapped shapes, in a map projection that keeps</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>areas honest, and each fire is assigned to the country it overlaps most. Same</span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>method as the <span class="co">[</span><span class="ot">2025 season analysis</span><span class="co">](posts/2025.qmd)</span> this project grew from.</span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: tracker-data</span></span>
-<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="co"># Reads the SAME cached envelope object as posts/2026.qmd (identical cache</span></span>
-<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a><span class="co"># key via build_envelope) -- nothing heavy is recomputed here.</span></span>
-<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf)</span>
-<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
-<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tibble)</span>
-<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(purrr)</span>
-<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span>
-<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(scales)</span>
-<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(janitor)</span>
-<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rnaturalearth)</span>
-<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(<span class="at">OGR_GEOJSON_MAX_OBJ_SIZE =</span> <span class="st">"0"</span>)</span>
-<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"helpers.R"</span>))</span>
-<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"geo.R"</span>))</span>
-<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"cache.R"</span>))</span>
-<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"theme.R"</span>))</span>
-<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"pipeline.R"</span>))</span>
-<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"plots.R"</span>))</span>
-<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"scripts"</span>, <span class="st">"latest_snapshot.R"</span>))</span>
-<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>snap <span class="ot">&lt;-</span> <span class="fu">latest_snapshot</span>()</span>
-<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="sc">!</span><span class="fu">is.na</span>(snap))</span>
-<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>eu <span class="ot">&lt;-</span> <span class="fu">get_eu</span>()</span>
-<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>envelope <span class="ot">&lt;-</span> <span class="fu">build_envelope</span>(</span>
-<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>  <span class="at">hist_years =</span> <span class="dv">2017</span><span class="sc">:</span><span class="dv">2025</span>, <span class="at">year_current =</span> <span class="dv">2026</span>L,</span>
-<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>  <span class="at">snapshot_dir =</span> snap, <span class="at">eu =</span> eu,</span>
-<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>  <span class="at">start_month =</span> <span class="dv">6</span>L, <span class="at">end_month =</span> <span class="dv">9</span>L</span>
-<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>m <span class="ot">&lt;-</span> envelope<span class="sc">$</span>meta</span>
-<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>as_of_lab <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="fu">day</span>(m<span class="sc">$</span>as_of_date), month.name[<span class="fu">month</span>(m<span class="sc">$</span>as_of_date)])</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>follows Europe's wildfire season as it unfolds. **The 2026 season is now</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>closed**: the numbers below are final, and the</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>**[2026 season in review](posts/2026.qmd)** gives the verdict. Updates resume</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>next June. Satellites spot wildfires</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>(large ones reliably, and increasingly small ones too), and Europe's **EFFIS** service,</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>part of the Copernicus programme, draws the outline of each burned area it</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>can map. During the fire season (**June to September**) this site refreshes</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>**weekly**: a pipeline fetches the newest outlines, stores a dated copy under</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="in">`DATA/snapshots/`</span>, and every chart re-renders from that copy. Fire sizes are</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>measured directly from the mapped shapes, in a map projection that keeps</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>areas honest, and each fire is assigned to the country it overlaps most. Same</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>method as the <span class="co">[</span><span class="ot">2025 season analysis</span><span class="co">](posts/2025.qmd)</span> this project grew from.</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: tracker-data</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a><span class="co"># Reads the SAME cached envelope object as posts/2026.qmd (identical cache</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="co"># key via build_envelope) -- nothing heavy is recomputed here.</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf)</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tibble)</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(purrr)</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(scales)</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(janitor)</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rnaturalearth)</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(<span class="at">OGR_GEOJSON_MAX_OBJ_SIZE =</span> <span class="st">"0"</span>)</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"helpers.R"</span>))</span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"geo.R"</span>))</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"cache.R"</span>))</span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"theme.R"</span>))</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"pipeline.R"</span>))</span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, <span class="st">"plots.R"</span>))</span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="fu">file.path</span>(<span class="st">"scripts"</span>, <span class="st">"latest_snapshot.R"</span>))</span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>snap <span class="ot">&lt;-</span> <span class="fu">latest_snapshot</span>()</span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="sc">!</span><span class="fu">is.na</span>(snap))</span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>eu <span class="ot">&lt;-</span> <span class="fu">get_eu</span>()</span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>envelope <span class="ot">&lt;-</span> <span class="fu">build_envelope</span>(</span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>  <span class="at">hist_years =</span> <span class="dv">2017</span><span class="sc">:</span><span class="dv">2025</span>, <span class="at">year_current =</span> <span class="dv">2026</span>L,</span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>  <span class="at">snapshot_dir =</span> snap, <span class="at">eu =</span> eu,</span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>  <span class="at">start_month =</span> <span class="dv">6</span>L, <span class="at">end_month =</span> <span class="dv">9</span>L</span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>cap_envelope <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(</span>
-<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>  <span class="fu">paste</span>(</span>
-<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Cumulative burned area since 1 June: 2026 to date against the 2017–2025"</span>,</span>
-<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a>    <span class="st">"range (shaded band: min–max; dashed line: median). The 2026 line stops at"</span>,</span>
-<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a>    <span class="st">"its last mapped perimeter (%s)."</span></span>
-<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>  as_of_lab</span>
-<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a><span class="fu">## Season at a glance, as of `r as_of_lab` `r m$year_current`</span></span>
-<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> How much has burned since 1 June <span class="pp">|</span> In how many separate fires <span class="pp">|</span> Compared with a typical recent season <span class="pp">|</span></span>
-<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a><span class="pp">|:---:|:---:|:---:|</span></span>
-<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`r lab_si_ha(m$current_cum_ha)`** | **`r comma(m$current_n_fires)`** | **`r if (is.na(m$pct_vs_median)) "n/a (too early in season)" else sprintf("%.0f%%", m$pct_vs_median)`** <span class="pp">|</span></span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>m <span class="ot">&lt;-</span> envelope<span class="sc">$</span>meta</span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>as_of_lab <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="fu">day</span>(m<span class="sc">$</span>as_of_date), month.name[<span class="fu">month</span>(m<span class="sc">$</span>as_of_date)])</span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a>cap_envelope <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(</span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a>  <span class="fu">paste</span>(</span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Cumulative burned area since 1 June: the full 2026 season against the 2017–2025"</span>,</span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>    <span class="st">"seasons (thin grey lines; band: middle half of those seasons; dashed line:"</span>,</span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a>    <span class="st">"median), with 2026's weekly burned area underneath. The shaded last 14 days"</span>,</span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>    <span class="st">"are still being mapped. The 2026 line stops at its last mapped perimeter (%s)."</span></span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>  as_of_lab</span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a><span class="fu">## Season at a glance, as of `r as_of_lab` `r m$year_current`</span></span>
 <span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a>: Totals count only the parts of each fire inside Europe (snapshot <span class="in">`r basename(snap)`</span>). Fire *counts* are not comparable across years because the detection system changed; the median comparison uses burned *area*. Details on the <span class="co">[</span><span class="ot">season page</span><span class="co">](posts/2026.qmd)</span>. {#tbl-glance}</span>
-<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: tracker-envelope</span></span>
-<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 9.5</span></span>
-<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 5.5</span></span>
-<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: !expr cap_envelope</span></span>
-<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_envelope</span>(envelope)</span>
-<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a>**The full picture** (hero and interactive maps, country rankings, raw and</span>
-<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a>normalized by land area, re-burn analysis, and what vegetation is burning)</span>
-<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a>lives on the **[2026 season page](posts/2026.qmd)**, updated with each</span>
-<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a>snapshot.</span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> How much has burned since 1 June <span class="pp">|</span> In how many separate fires <span class="pp">|</span> Compared with a typical recent season <span class="pp">|</span></span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a><span class="pp">|:---:|:---:|:---:|</span></span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **`r lab_si_ha(m$current_cum_ha)`** | **`r comma(m$current_n_fires)`** | **`r if (is.na(m$pct_vs_median)) "n/a (too early in season)" else sprintf("%.0f%%", m$pct_vs_median)`** <span class="pp">|</span></span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a>: Totals count only the parts of each fire inside Europe (snapshot <span class="in">`r basename(snap)`</span>). Fire *counts* are not comparable across years because the detection system changed; the median comparison uses burned *area*. Details on the <span class="co">[</span><span class="ot">season page</span><span class="co">](posts/2026.qmd)</span>. {#tbl-glance}</span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: tracker-envelope</span></span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-width: 8</span></span>
+<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-height: 6.5</span></span>
+<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: !expr cap_envelope</span></span>
+<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_envelope</span>(envelope)</span>
+<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a>**The full picture** (hero and interactive maps, country rankings, raw and</span>
+<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a>normalized by land area, re-burn analysis, and what vegetation is burning)</span>
+<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a>lives on the **[2026 season in review](posts/2026.qmd)**.</span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
